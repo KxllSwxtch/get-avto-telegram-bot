@@ -590,7 +590,8 @@ def handle_callback_query(call):
                     callback_data="calculate_another",
                 )
             )
-        elif call.data.startswith("detail_manual"):
+
+        if call.data.startswith("detail_manual"):
             keyboard.add(
                 types.InlineKeyboardButton(
                     "Рассчитать стоимость другого автомобиля",
