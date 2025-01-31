@@ -303,7 +303,7 @@ def calculate_cost(link, message):
         keyboard = types.InlineKeyboardMarkup()
         keyboard.add(
             types.InlineKeyboardButton(
-                "Написать менеджеру", url="https://t.me/romanusha"
+                "Написать менеджеру", url="https://t.me/GetAuto_manager_bot"
             )
         )
         keyboard.add(
@@ -468,7 +468,7 @@ def calculate_cost(link, message):
             f"Объём двигателя: {engine_volume_formatted}\n\n"
             f"Примерная стоимость автомобиля под ключ до Владивостока: \n<b>${format_number(total_cost_usd)} </b> | <b>₩{format_number(total_cost_krw)} </b> | <b>{format_number(total_cost)} ₽</b>\n\n"
             f"🔗 <a href='{preview_link}'>Ссылка на автомобиль</a>\n\n"
-            "Если данное авто попадает под санкции, пожалуйста уточните возможность отправки в вашу страну у менеджера @romanusha\n\n"
+            "Если данное авто попадает под санкции, пожалуйста уточните возможность отправки в вашу страну у менеджера @GetAuto_manager_bot\n\n"
             "🔗 <a href='https://t.me/Getauto_kor'>Официальный телеграм канал</a>\n"
         )
 
@@ -485,7 +485,7 @@ def calculate_cost(link, message):
         )
         keyboard.add(
             types.InlineKeyboardButton(
-                "Написать менеджеру", url="https://t.me/romanusha"
+                "Написать менеджеру", url="https://t.me/GetAuto_manager_bot"
             )
         )
         keyboard.add(
@@ -577,7 +577,7 @@ def handle_callback_query(call):
             f"СВХ-Владивосток:\n<b>${format_number(car_data['svh_russia_usd'])}</b> | <b>₩{format_number(car_data['svh_russia_krw'])}</b> | <b>{format_number(car_data['svh_russia_rub'])} ₽</b>\n\n"
             f"Лаборатория, СБКТС, ЭПТС:\n<b>${format_number(car_data['lab_russia_usd'])}</b> | <b>₩{format_number(car_data['lab_russia_krw'])}</b> | <b>{format_number(car_data['lab_russia_rub'])} ₽</b>\n\n"
             f"Временная регистрация-Владивосток:\n<b>${format_number(car_data['perm_registration_russia_usd'])}</b> | <b>₩{format_number(car_data['perm_registration_russia_krw'])}</b> | <b>{format_number(car_data['perm_registration_russia_rub'])} ₽</b>\n\n"
-            f"<b>Доставку до вашего города уточняйте у менеджера @romanusha</b>\n"
+            f"<b>Доставку до вашего города уточняйте у менеджера @GetAuto_manager_bot</b>\n"
         )
 
         # Inline buttons for further actions
@@ -600,7 +600,7 @@ def handle_callback_query(call):
             )
         keyboard.add(
             types.InlineKeyboardButton(
-                "Связаться с менеджером", url="https://t.me/romanusha"
+                "Связаться с менеджером", url="https://t.me/GetAuto_manager_bot"
             )
         )
 
@@ -644,7 +644,7 @@ def handle_callback_query(call):
             )
             keyboard.add(
                 types.InlineKeyboardButton(
-                    "Связаться с менеджером", url="https://t.me/romanusha"
+                    "Связаться с менеджером", url="https://t.me/GetAuto_manager_bot"
                 )
             )
 
@@ -680,7 +680,7 @@ def handle_callback_query(call):
             )
             keyboard.add(
                 types.InlineKeyboardButton(
-                    "Связаться с менеджером", url="https://t.me/romanusha"
+                    "Связаться с менеджером", url="https://t.me/GetAuto_manager_bot"
                 )
             )
 
@@ -730,7 +730,8 @@ def handle_message(message):
     # Проверка на другие команды
     elif user_message == "Написать менеджеру":
         bot.send_message(
-            message.chat.id, "Вы можете связаться с менеджером по ссылке: @romanusha"
+            message.chat.id,
+            "Вы можете связаться с менеджером по ссылке: @GetAuto_manager_bot",
         )
     elif user_message == "Написать в WhatsApp":
         whatsapp_link = "https://wa.me/+821030485191"  # Владимир Кан
@@ -1001,7 +1002,7 @@ def calculate_manual_cost(user_id):
         f"<b>${format_number(total_cost_usd)}</b> | "
         f"<b>₩{format_number(total_cost_krw)}</b> | "
         f"<b>{format_number(total_cost)} ₽</b>\n\n"
-        "Если данное авто попадает под санкции, пожалуйста уточните возможность отправки в вашу страну у менеджера @romanusha\n\n"
+        "Если данное авто попадает под санкции, пожалуйста уточните возможность отправки в вашу страну у менеджера @GetAuto_manager_bot\n\n"
         "🔗 <a href='https://t.me/Getauto_kor'>Официальный телеграм канал</a>\n"
     )
 
@@ -1016,7 +1017,9 @@ def calculate_manual_cost(user_id):
         )
     )
     keyboard.add(
-        types.InlineKeyboardButton("Написать менеджеру", url="https://t.me/romanusha")
+        types.InlineKeyboardButton(
+            "Написать менеджеру", url="https://t.me/GetAuto_manager_bot"
+        )
     )
 
     # Отправка сообщения пользователю
