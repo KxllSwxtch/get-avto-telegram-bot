@@ -1,4 +1,36 @@
+import datetime
+import locale
+import math
 import gc
+
+
+# Utility function to calculate the age category
+def calculate_age(year, month):
+    # Убираем ведущий ноль у месяца, если он есть
+    month = int(month.lstrip("0")) if isinstance(month, str) else int(month)
+
+    current_date = datetime.datetime.now()
+    car_date = datetime.datetime(year=int(year), month=month, day=1)
+
+    age_in_months = (
+        (current_date.year - car_date.year) * 12 + current_date.month - car_date.month
+    )
+
+    if age_in_months < 36:
+        return f"До 3 лет"
+    elif 36 <= age_in_months < 60:
+        return f"от 3 до 5 лет"
+    else:
+        return f"от 5 лет"
+
+
+def format_number(number):
+    return locale.format_string("%d", number, grouping=True)
+
+
+# Округляем объёмы ДВС
+def round_engine_volume(volume):
+    return math.ceil(int(volume) / 100) * 100  # Округление вверх до ближайшей сотни
 
 
 # Очищение памяти

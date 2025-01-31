@@ -16,6 +16,9 @@ from utils import (
     clear_memory,
     calculate_customs_duty,
     calculate_recycling_fee,
+    round_engine_volume,
+    calculate_age,
+    format_number,
 )
 
 CALCULATE_CAR_TEXT = "Расчёт по ссылке с Encar"
@@ -100,19 +103,19 @@ def get_currency_rates():
         data["Valute"]["KRW"]["Value"]
         + (data["Valute"]["KRW"]["Value"] * DEALER_COMMISSION)
     ) / data["Valute"]["KRW"]["Nominal"]
-    cny = data["Valute"]["CNY"]["Value"] + (
-        data["Valute"]["CNY"]["Value"] * DEALER_COMMISSION
-    )
 
     usd_rate = usd
+
+    # Добавляем 4.43% к курсу воны к рублю (как в HTML-калькуляторе)
+    krw = krw * 1.0443
     krw_rub_rate = krw
+
     eur_rub_rate = eur
 
     rates_text = (
         f"EUR: <b>{eur:.2f} ₽</b>\n"
         f"USD: <b>{usd:.2f} ₽</b>\n"
-        f"KRW: <b>{krw:.2f} ₽</b>\n"
-        f"CNY: <b>{cny:.2f} ₽</b>"
+        f"KRW: <b>{krw:.5f} ₽</b>\n"
     )
 
     return rates_text
@@ -319,13 +322,14 @@ def calculate_cost(link, message):
     if car_price and car_engine_displacement and formatted_car_date:
         print_message("Выполняется расчёт стоимости для России")
 
-        car_engine_displacement = int(car_engine_displacement)
+        car_engine_displacement = int(round_engine_volume(car_engine_displacement))
 
         # Форматирование данных
         formatted_car_year = f"20{car_year}"
-        engine_volume_formatted = f"{format_number(car_engine_displacement)} cc"
+        engine_volume_formatted = (
+            f"{format_number(round_engine_volume(car_engine_displacement))} cc"
+        )
         age_formatted = calculate_age(int(formatted_car_year), car_month)
-        engine_volume_formatted = f"{format_number(car_engine_displacement)} cc"
 
         # Конвертируем стоимость авто в рубли
         price_krw = int(car_price) * 10000
@@ -338,14 +342,14 @@ def calculate_cost(link, message):
         car_price_eur = car_price_rub / eur_rub_rate
         customs_duty = calculate_customs_duty(
             car_price_eur,
-            int(car_engine_displacement),
+            int(round_engine_volume(car_engine_displacement)),
             (eur_rub_rate + 3),
             age_formatted.lower(),
         )
 
         # Рассчитываем утилизационный сбор
         recycling_fee = calculate_recycling_fee(
-            int(car_engine_displacement), age_formatted.lower()
+            int(round_engine_volume(car_engine_displacement)), age_formatted.lower()
         )
 
         # Расчет итоговой стоимости автомобиля в рублях
@@ -758,30 +762,6 @@ def handle_message(message):
         )
 
 
-# Utility function to calculate the age category
-def calculate_age(year, month):
-    # Убираем ведущий ноль у месяца, если он есть
-    month = int(month.lstrip("0")) if isinstance(month, str) else int(month)
-
-    current_date = datetime.datetime.now()
-    car_date = datetime.datetime(year=int(year), month=month, day=1)
-
-    age_in_months = (
-        (current_date.year - car_date.year) * 12 + current_date.month - car_date.month
-    )
-
-    if age_in_months < 36:
-        return f"До 3 лет"
-    elif 36 <= age_in_months < 60:
-        return f"от 3 до 5 лет"
-    else:
-        return f"от 5 лет"
-
-
-def format_number(number):
-    return locale.format_string("%d", number, grouping=True)
-
-
 #######################
 # Для ручного расчёта #
 #######################
@@ -866,7 +846,7 @@ def calculate_manual_cost(user_id):
     month = data["month"]
     year = data["year"]
 
-    car_engine_displacement = int(engine_volume)
+    car_engine_displacement = int(round_engine_volume(engine_volume))
 
     # Форматирование данных
     engine_volume_formatted = f"{format_number(car_engine_displacement)} cc"
@@ -900,15 +880,17 @@ def calculate_manual_cost(user_id):
         + (440000 * krw_rub_rate)
         + (100000 * krw_rub_rate)
         + (350000 * krw_rub_rate)
-        + (600 * usd_rate)
+        + (600 / usd_rate)
         + (customs_duty)
         + customs_fee
         + recycling_fee
-        + (346 * usd_rate)
+        + (346 / usd_rate)
         + 50000
         + 30000
         + 8000
     )
+
+    print(price_krw, krw_rub_rate, usd_rate)
 
     total_cost_usd = total_cost / usd_rate
     total_cost_krw = total_cost / krw_rub_rate
