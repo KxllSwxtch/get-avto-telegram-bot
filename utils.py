@@ -140,10 +140,10 @@ def calculate_recycling_fee(engine_volume, age):
         elif engine_volume <= 3000:
             coefficient = 0.17
         elif engine_volume <= 3500:
-            coefficient = 89.73
-        else:
-            coefficient = 114.26
-    else:  # Для автомобилей старше 3 лет
+            coefficient = 107.67
+        else:  # Для свыше 3500 см³
+            coefficient = 137.11
+    else:  # Для автомобилей старше 3 лет (от 3 до 5 лет и старше 5 лет)
         if engine_volume <= 1000:
             coefficient = 0.26
         elif engine_volume <= 2000:
@@ -151,9 +151,9 @@ def calculate_recycling_fee(engine_volume, age):
         elif engine_volume <= 3000:
             coefficient = 0.26
         elif engine_volume <= 3500:
-            coefficient = 137.36
-        else:
-            coefficient = 150.2
+            coefficient = 165.84
+        else:  # Для свыше 3500 см³
+            coefficient = 180.24  # Исправленный коэффициент
 
     # Рассчитываем утилизационный сбор
     recycling_fee = base_rate * coefficient

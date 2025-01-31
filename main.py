@@ -40,7 +40,7 @@ logging.basicConfig(
 # Load keys from .env file
 load_dotenv()
 bot_token = os.getenv("BOT_TOKEN")
-bot = telebot.TeleBot(bot_token)
+bot = telebot.TeleBot("7759263308:AAGNbWbjop76z9GKUMfannPWzjxOFGu-QGo")
 
 # Set locale for number formatting
 locale.setlocale(locale.LC_ALL, "en_US.UTF-8")
@@ -106,8 +106,8 @@ def get_currency_rates():
 
     usd_rate = usd
 
-    # Добавляем 4.43% к курсу воны к рублю (как в HTML-калькуляторе)
-    krw = krw * 1.0443
+    # Добавляем 3% к курсу воны к рублю (как в HTML-калькуляторе)
+    krw = krw * 1.03
     krw_rub_rate = krw
 
     eur_rub_rate = eur
@@ -343,7 +343,7 @@ def calculate_cost(link, message):
         customs_duty = calculate_customs_duty(
             car_price_eur,
             int(round_engine_volume(car_engine_displacement)),
-            (eur_rub_rate + 3),
+            eur_rub_rate,
             age_formatted.lower(),
         )
 
@@ -432,7 +432,7 @@ def calculate_cost(link, message):
 
         # Расходы Россия
         car_data["customs_duty_usd"] = customs_duty / usd_rate
-        car_data["customs_duty_krw"] = customs_duty * krw_rub_rate
+        car_data["customs_duty_krw"] = customs_duty / krw_rub_rate
         car_data["customs_duty_rub"] = customs_duty
 
         car_data["customs_fee_usd"] = customs_fee / usd_rate
@@ -583,14 +583,6 @@ def handle_callback_query(call):
         # Inline buttons for further actions
         keyboard = types.InlineKeyboardMarkup()
 
-        if call.data.startswith("detail"):
-            keyboard.add(
-                types.InlineKeyboardButton(
-                    "Рассчитать стоимость другого автомобиля",
-                    callback_data="calculate_another",
-                )
-            )
-
         if call.data.startswith("detail_manual"):
             keyboard.add(
                 types.InlineKeyboardButton(
@@ -598,6 +590,14 @@ def handle_callback_query(call):
                     callback_data="calculate_another_manual",
                 )
             )
+        else:
+            keyboard.add(
+                types.InlineKeyboardButton(
+                    "Рассчитать стоимость другого автомобиля",
+                    callback_data="calculate_another",
+                )
+            )
+
         keyboard.add(
             types.InlineKeyboardButton(
                 "Связаться с менеджером", url="https://t.me/GetAuto_manager_bot"
@@ -781,13 +781,29 @@ def process_manual_month(message):
     user_id = message.chat.id
     user_input = message.text.strip()
 
+    # Проверяем, если пользователь нажал кнопку, а не ввёл число
+    if user_input in [
+        CALCULATE_CAR_TEXT,
+        MANUAL_CAR_TEXT,
+        "Написать менеджеру",
+        "О нас",
+        "Мы в соц. сетях",
+        "Написать в WhatsApp",
+    ]:
+        handle_message(message)  # Передаём управление стандартному обработчику команд
+        return  # Завершаем обработку ввода месяца
+
+    # Проверяем корректность ввода месяца
     if not user_input.isdigit() or not (1 <= int(user_input) <= 12):
-        bot.send_message(user_id, "Некорректный месяц! Введите число от 1 до 12:")
+        bot.send_message(user_id, "❌ Некорректный месяц! Введите число от 1 до 12.")
         bot.register_next_step_handler(message, process_manual_month)
         return
 
+    # Если всё ок, продолжаем ввод данных
     user_manual_input[user_id]["month"] = int(user_input)
-    bot.send_message(user_id, "Введите год выпуска (например, 2021):")
+    bot.send_message(
+        user_id, "✅ Отлично! Теперь введите год выпуска (например, 2021):"
+    )
     bot.register_next_step_handler(message, process_manual_year)
 
 
