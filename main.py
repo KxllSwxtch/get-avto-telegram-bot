@@ -702,11 +702,9 @@ def handle_message(message):
             message.chat.id, "Вы можете связаться с менеджером по ссылке: @romanusha"
         )
     elif user_message == "Написать в WhatsApp":
-        whatsapp_link = "https://wa.me/821076503034"  # Костя 1
-        whatsapp_link_second = "https://wa.me/821072911701"  # Костя 2
-        whatsapp_link_third = "https://wa.me/821035041522"  # Елена
+        whatsapp_link = "https://wa.me/+821030485191"  # Владимир Кан
 
-        message_text = f"{whatsapp_link} - Константин\n{whatsapp_link_second} - Константин 2\n{whatsapp_link_third} - Елена (English, 한국어)"
+        message_text = f"{whatsapp_link} - Владимир (Корея)"
 
         bot.send_message(
             message.chat.id,
