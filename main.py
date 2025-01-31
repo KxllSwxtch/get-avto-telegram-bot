@@ -18,7 +18,8 @@ from utils import (
     calculate_recycling_fee,
 )
 
-CALCULATE_CAR_TEXT = "Рассчитать Автомобиль"
+CALCULATE_CAR_TEXT = "Расчёт по ссылке с Encar"
+MANUAL_CAR_TEXT = "Расчёт стоимости вручную"
 DEALER_COMMISSION = 0.00  # 2%
 
 
@@ -46,6 +47,7 @@ last_error_message_id = {}
 
 # global variables
 car_data = {}
+user_manual_input = {}
 car_id_external = ""
 total_car_price = 0
 users = set()
@@ -152,6 +154,7 @@ def main_menu():
     keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=False)
     keyboard.add(
         types.KeyboardButton(CALCULATE_CAR_TEXT),
+        types.KeyboardButton(MANUAL_CAR_TEXT),
         types.KeyboardButton("Написать менеджеру"),
         types.KeyboardButton("О нас"),
         types.KeyboardButton("Мы в соц. сетях"),
@@ -548,7 +551,7 @@ def get_insurance_total():
 def handle_callback_query(call):
     global car_data, car_id_external, usd_rate
 
-    if call.data.startswith("detail"):
+    if call.data.startswith("detail") or call.data.startswith("detail_manual"):
         print_message("[ЗАПРОС] ДЕТАЛИЗАЦИЯ РАСЧËТА")
 
         detail_message = (
@@ -575,12 +578,21 @@ def handle_callback_query(call):
 
         # Inline buttons for further actions
         keyboard = types.InlineKeyboardMarkup()
-        keyboard.add(
-            types.InlineKeyboardButton(
-                "Рассчитать стоимость другого автомобиля",
-                callback_data="calculate_another",
+
+        if call.data.startswith("detail"):
+            keyboard.add(
+                types.InlineKeyboardButton(
+                    "Рассчитать стоимость другого автомобиля",
+                    callback_data="calculate_another",
+                )
             )
-        )
+        elif call.data.startswith("detail_manual"):
+            keyboard.add(
+                types.InlineKeyboardButton(
+                    "Рассчитать стоимость другого автомобиля",
+                    callback_data="calculate_another_manual",
+                )
+            )
         keyboard.add(
             types.InlineKeyboardButton(
                 "Связаться с менеджером", url="https://t.me/romanusha"
@@ -680,9 +692,18 @@ def handle_callback_query(call):
             "Пожалуйста, введите ссылку на автомобиль с сайта www.encar.com:",
         )
 
+    elif call.data == "calculate_another_manual":
+        user_id = call.message.chat.id
+        user_manual_input[user_id] = {}  # Очищаем старые данные пользователя
+        bot.send_message(user_id, "Введите месяц выпуска (например, 10 для октября):")
+        bot.register_next_step_handler(call.message, process_manual_month)
+
 
 @bot.message_handler(func=lambda message: True)
 def handle_message(message):
+    global user_manual_input
+
+    user_id = message.chat.id
     user_message = message.text.strip()
 
     # Проверяем нажатие кнопки "Рассчитать автомобиль"
@@ -691,6 +712,11 @@ def handle_message(message):
             message.chat.id,
             "Пожалуйста, введите ссылку на автомобиль с сайта www.encar.com:",
         )
+
+    elif user_message == MANUAL_CAR_TEXT:
+        user_manual_input[user_id] = {}  # Создаём пустой словарь для пользователя
+        bot.send_message(user_id, "Введите месяц выпуска (например, 10 для октября):")
+        bot.register_next_step_handler(message, process_manual_month)
 
     # Проверка на корректность ссылки
     elif re.match(r"^https?://(www|fem)\.encar\.com/.*", user_message):
@@ -754,6 +780,255 @@ def calculate_age(year, month):
 
 def format_number(number):
     return locale.format_string("%d", number, grouping=True)
+
+
+#######################
+# Для ручного расчёта #
+#######################
+# Обработчик ввода месяца
+def process_manual_month(message):
+    user_id = message.chat.id
+    user_input = message.text.strip()
+
+    if not user_input.isdigit() or not (1 <= int(user_input) <= 12):
+        bot.send_message(user_id, "Некорректный месяц! Введите число от 1 до 12:")
+        bot.register_next_step_handler(message, process_manual_month)
+        return
+
+    user_manual_input[user_id]["month"] = int(user_input)
+    bot.send_message(user_id, "Введите год выпуска (например, 2021):")
+    bot.register_next_step_handler(message, process_manual_year)
+
+
+# Обработчик ввода года
+def process_manual_year(message):
+    user_id = message.chat.id
+    user_input = message.text.strip()
+
+    if not user_input.isdigit() or not (
+        1980 <= int(user_input) <= datetime.datetime.now().year
+    ):
+        bot.send_message(
+            user_id, "Некорректный год! Введите год от 1980 до текущего года:"
+        )
+        bot.register_next_step_handler(message, process_manual_year)
+        return
+
+    user_manual_input[user_id]["year"] = int(user_input)
+    bot.send_message(user_id, "Введите объём двигателя в CC (например, 2000):")
+    bot.register_next_step_handler(message, process_manual_engine)
+
+
+# Обработчик ввода объёма двигателя
+def process_manual_engine(message):
+    user_id = message.chat.id
+    user_input = message.text.strip()
+
+    if not user_input.isdigit() or not (500 <= int(user_input) <= 10000):
+        bot.send_message(
+            user_id, "Некорректный объём! Введите число от 500 до 10000 CC:"
+        )
+        bot.register_next_step_handler(message, process_manual_engine)
+        return
+
+    user_manual_input[user_id]["engine_volume"] = int(user_input)
+    bot.send_message(
+        user_id, "Введите стоимость автомобиля в Корее (например, 30000000):"
+    )
+    bot.register_next_step_handler(message, process_manual_price)
+
+
+# Обработчик ввода стоимости автомобиля
+def process_manual_price(message):
+    user_id = message.chat.id
+    user_input = message.text.strip()
+
+    if not user_input.isdigit() or not (1000000 <= int(user_input) <= 1000000000000):
+        bot.send_message(
+            user_id,
+            "Некорректная стоимость! Введите сумму от 1 000 000 до 200 000 000 KRW:",
+        )
+        bot.register_next_step_handler(message, process_manual_price)
+        return
+
+    user_manual_input[user_id]["price_krw"] = int(user_input)
+
+    # Запускаем расчёт автомобиля
+    calculate_manual_cost(user_id)
+
+
+# Функция расчёта стоимости авто
+def calculate_manual_cost(user_id):
+    data = user_manual_input[user_id]
+
+    price_krw = data["price_krw"]
+    engine_volume = data["engine_volume"]
+    month = data["month"]
+    year = data["year"]
+
+    car_engine_displacement = int(engine_volume)
+
+    # Форматирование данных
+    engine_volume_formatted = f"{format_number(car_engine_displacement)} cc"
+    age_formatted = calculate_age(year, month)
+
+    # Конвертируем стоимость авто в рубли
+    price_krw = int(price_krw)
+    car_price_rub = price_krw * krw_rub_rate
+
+    # Таможенный сбор
+    customs_fee = calculate_customs_fee(car_price_rub)
+
+    # Таможенная пошлина
+    car_price_eur = car_price_rub / eur_rub_rate
+    customs_duty = calculate_customs_duty(
+        car_price_eur,
+        car_engine_displacement,
+        eur_rub_rate,
+        age_formatted.lower(),
+    )
+
+    # Рассчитываем утилизационный сбор
+    recycling_fee = calculate_recycling_fee(
+        int(car_engine_displacement), age_formatted.lower()
+    )
+
+    # Расчет итоговой стоимости автомобиля в рублях
+    total_cost = (
+        50000
+        + (price_krw * krw_rub_rate)
+        + (440000 * krw_rub_rate)
+        + (100000 * krw_rub_rate)
+        + (350000 * krw_rub_rate)
+        + (600 * usd_rate)
+        + (customs_duty)
+        + customs_fee
+        + recycling_fee
+        + (346 * usd_rate)
+        + 50000
+        + 30000
+        + 8000
+    )
+
+    total_cost_usd = total_cost / usd_rate
+    total_cost_krw = total_cost / krw_rub_rate
+
+    car_data["agent_korea_rub"] = 50000
+    car_data["agent_korea_usd"] = 50000 / usd_rate
+    car_data["agent_korea_krw"] = 50000 / krw_rub_rate
+
+    car_data["advance_rub"] = 1000000 * krw_rub_rate
+    car_data["advance_usd"] = (1000000 * krw_rub_rate) / usd_rate
+    car_data["advance_krw"] = 1000000
+
+    car_data["car_price_krw"] = price_krw - 1000000
+    car_data["car_price_usd"] = (price_krw - 1000000) * krw_rub_rate / usd_rate
+    car_data["car_price_rub"] = (price_krw - 1000000) * krw_rub_rate
+
+    car_data["dealer_korea_usd"] = 440000 * krw_rub_rate / usd_rate
+    car_data["dealer_korea_krw"] = 440000
+    car_data["dealer_korea_rub"] = 440000 * krw_rub_rate
+
+    car_data["delivery_korea_usd"] = 100000 * krw_rub_rate / usd_rate
+    car_data["delivery_korea_krw"] = 100000
+    car_data["delivery_korea_rub"] = 100000 * krw_rub_rate
+
+    car_data["transfer_korea_usd"] = 350000 * krw_rub_rate / usd_rate
+    car_data["transfer_korea_krw"] = 350000
+    car_data["transfer_korea_rub"] = 350000 * krw_rub_rate
+
+    car_data["freight_korea_usd"] = 600
+    car_data["freight_korea_krw"] = 600 * usd_rate / krw_rub_rate
+    car_data["freight_korea_rub"] = 600 * usd_rate
+
+    car_data["korea_total_usd"] = (
+        (50000 / usd_rate)
+        + ((1000000 * krw_rub_rate) / usd_rate)
+        + ((price_krw) * krw_rub_rate / usd_rate)
+        + (440000 * krw_rub_rate / usd_rate)
+        + (100000 * krw_rub_rate / usd_rate)
+        + (350000 * krw_rub_rate / usd_rate)
+        + (600)
+    )
+
+    car_data["korea_total_krw"] = (
+        (50000 / krw_rub_rate)
+        + (1000000)
+        + (price_krw)
+        + (440000)
+        + (100000)
+        + 350000
+        + (600 * usd_rate / krw_rub_rate)
+    )
+
+    car_data["korea_total_rub"] = (
+        (50000)
+        + (1000000 * krw_rub_rate)
+        + ((price_krw - 1000000) * krw_rub_rate)
+        + (440000 * krw_rub_rate)
+        + (100000 * krw_rub_rate)
+        + (350000 * krw_rub_rate)
+        + (600 * usd_rate)
+    )
+
+    # Расходы Россия
+    car_data["customs_duty_usd"] = customs_duty / usd_rate
+    car_data["customs_duty_krw"] = customs_duty * krw_rub_rate
+    car_data["customs_duty_rub"] = customs_duty
+
+    car_data["customs_fee_usd"] = customs_fee / usd_rate
+    car_data["customs_fee_krw"] = customs_fee / krw_rub_rate
+    car_data["customs_fee_rub"] = customs_fee
+
+    car_data["util_fee_usd"] = recycling_fee / usd_rate
+    car_data["util_fee_krw"] = recycling_fee / krw_rub_rate
+    car_data["util_fee_rub"] = recycling_fee
+
+    car_data["broker_russia_usd"] = 346
+    car_data["broker_russia_krw"] = 346 * usd_rate / krw_rub_rate
+    car_data["broker_russia_rub"] = 346 * usd_rate
+
+    car_data["svh_russia_usd"] = 50000 / usd_rate
+    car_data["svh_russia_krw"] = 50000 / krw_rub_rate
+    car_data["svh_russia_rub"] = 50000
+
+    car_data["lab_russia_usd"] = 30000 / usd_rate
+    car_data["lab_russia_krw"] = 30000 / krw_rub_rate
+    car_data["lab_russia_rub"] = 30000
+
+    car_data["perm_registration_russia_usd"] = 8000 / usd_rate
+    car_data["perm_registration_russia_krw"] = 8000 / krw_rub_rate
+    car_data["perm_registration_russia_rub"] = 8000
+
+    # Формирование сообщения
+    result_message = (
+        f"Возраст: {age_formatted}\n"
+        f"Стоимость автомобиля в Корее: ₩{format_number(price_krw)}\n"
+        f"Объём двигателя: {engine_volume_formatted}\n\n"
+        f"Примерная стоимость автомобиля под ключ до Владивостока:\n"
+        f"<b>${format_number(total_cost_usd)}</b> | "
+        f"<b>₩{format_number(total_cost_krw)}</b> | "
+        f"<b>{format_number(total_cost)} ₽</b>\n\n"
+        "Если данное авто попадает под санкции, пожалуйста уточните возможность отправки в вашу страну у менеджера @romanusha\n\n"
+        "🔗 <a href='https://t.me/Getauto_kor'>Официальный телеграм канал</a>\n"
+    )
+
+    # Клавиатура с действиями
+    keyboard = types.InlineKeyboardMarkup()
+    keyboard.add(
+        types.InlineKeyboardButton("Детали расчёта", callback_data="detail_manual")
+    )
+    keyboard.add(
+        types.InlineKeyboardButton(
+            "Рассчитать другой автомобиль", callback_data="calculate_another_manual"
+        )
+    )
+    keyboard.add(
+        types.InlineKeyboardButton("Написать менеджеру", url="https://t.me/romanusha")
+    )
+
+    # Отправка сообщения пользователю
+    bot.send_message(user_id, result_message, parse_mode="HTML", reply_markup=keyboard)
 
 
 # Run the bot

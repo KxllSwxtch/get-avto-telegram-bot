@@ -68,7 +68,7 @@ def calculate_customs_duty(car_price_euro, engine_volume, euro_to_rub_rate, age)
             duty = engine_volume * 3.6
 
     # Для автомобилей старше 5 лет
-    elif age == "старше 5 лет":
+    elif age == "старше 5 лет" or age == "от 5 лет":
         if engine_volume <= 1000:
             duty = engine_volume * 3
         elif engine_volume <= 1500:
