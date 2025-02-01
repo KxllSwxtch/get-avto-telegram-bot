@@ -19,6 +19,8 @@ from utils import (
     round_engine_volume,
     calculate_age,
     format_number,
+    get_customs_fees,
+    clean_number,
 )
 
 CALCULATE_CAR_TEXT = "Расчёт по ссылке с Encar"
@@ -107,7 +109,7 @@ def get_currency_rates():
     usd_rate = usd
 
     # Добавляем 3% к курсу воны к рублю (как в HTML-калькуляторе)
-    krw = krw * 1.03
+    krw = round(krw, 3) * 1.03
     krw_rub_rate = krw
 
     eur_rub_rate = eur
@@ -130,9 +132,7 @@ def cbr_command(message):
         # Создаем клавиатуру с кнопкой для расчета автомобиля
         keyboard = types.InlineKeyboardMarkup()
         keyboard.add(
-            types.InlineKeyboardButton(
-                "Рассчитать стоимость автомобиля", callback_data="calculate_another"
-            )
+            types.InlineKeyboardButton("Главное меню", callback_data="main_menu")
         )
 
         # Отправляем сообщение с курсами и клавиатурой
@@ -320,37 +320,54 @@ def calculate_cost(link, message):
 
     # Если есть новая ссылка
     if car_price and car_engine_displacement and formatted_car_date:
-        print_message("Выполняется расчёт стоимости для России")
-
-        car_engine_displacement = int(round_engine_volume(car_engine_displacement))
+        car_engine_displacement = int(car_engine_displacement)
 
         # Форматирование данных
         formatted_car_year = f"20{car_year}"
-        engine_volume_formatted = (
-            f"{format_number(round_engine_volume(car_engine_displacement))} cc"
+        engine_volume_formatted = f"{format_number(car_engine_displacement)} cc"
+        age = calculate_age(int(formatted_car_year), car_month)
+
+        age_formatted = (
+            "до 3 лет"
+            if age == "0-3"
+            else (
+                "от 3 до 5 лет"
+                if age == "3-5"
+                else "от 5 до 7 лет" if age == "5-7" else "от 7 лет"
+            )
         )
-        age_formatted = calculate_age(int(formatted_car_year), car_month)
 
         # Конвертируем стоимость авто в рубли
         price_krw = int(car_price) * 10000
         car_price_rub = price_krw * krw_rub_rate
 
+        response = get_customs_fees(
+            car_engine_displacement,
+            price_krw,
+            int(f"20{car_year}"),
+            car_month,
+            engine_type=1,
+        )
+
         # Таможенный сбор
-        customs_fee = calculate_customs_fee(car_price_rub)
+        # customs_fee = calculate_customs_fee(car_price_rub)
+        customs_fee = clean_number(response["sbor"])
 
         # Таможенная пошлина
-        car_price_eur = car_price_rub / eur_rub_rate
-        customs_duty = calculate_customs_duty(
-            car_price_eur,
-            int(round_engine_volume(car_engine_displacement)),
-            eur_rub_rate,
-            age_formatted.lower(),
-        )
+        # car_price_eur = car_price_rub / eur_rub_rate
+        # customs_duty = calculate_customs_duty(
+        #     car_price_eur,
+        #     int(round_engine_volume(car_engine_displacement)),
+        #     eur_rub_rate,
+        #     age_formatted.lower(),
+        # )
+        customs_duty = clean_number(response["tax"])
 
         # Рассчитываем утилизационный сбор
-        recycling_fee = calculate_recycling_fee(
-            int(round_engine_volume(car_engine_displacement)), age_formatted.lower()
-        )
+        # recycling_fee = calculate_recycling_fee(
+        #     int(round_engine_volume(car_engine_displacement)), age_formatted.lower()
+        # )
+        recycling_fee = clean_number(response["util"])
 
         # Расчет итоговой стоимости автомобиля в рублях
         total_cost = (
@@ -569,10 +586,10 @@ def handle_callback_query(call):
             f"Транспортировка авто в порт:\n<b>${format_number(car_data['transfer_korea_usd'])}</b> | <b>₩{format_number(car_data['transfer_korea_krw'])}</b> | <b>{format_number(car_data['transfer_korea_rub'])} ₽</b>\n\n"
             f"Фрахт (Паром до Владивостока):\n<b>${format_number(car_data['freight_korea_usd'])}</b> | <b>₩{format_number(car_data['freight_korea_krw'])}</b> | <b>{format_number(car_data['freight_korea_rub'])} ₽</b>\n\n"
             f"<b>Итого расходов по Корее</b>:\n<b>${format_number(car_data['korea_total_usd'])}</b> | <b>₩{format_number(car_data['korea_total_krw'])}</b> | <b>{format_number(car_data['korea_total_rub'])} ₽</b>\n\n\n"
-            f"<i>РАСХОДЫ РОССИЯ</i>:\n\n"
+            f"<i>РАСХОДЫ РОССИЯ</i>:\n\n\n"
             f"Единая таможенная ставка:\n<b>${format_number(car_data['customs_duty_usd'])}</b> | <b>₩{format_number(car_data['customs_duty_krw'])}</b> | <b>{format_number(car_data['customs_duty_rub'])} ₽</b>\n\n"
             f"Таможенное оформление:\n<b>${format_number(car_data['customs_fee_usd'])}</b> | <b>₩{format_number(car_data['customs_fee_krw'])}</b> | <b>{format_number(car_data['customs_fee_rub'])} ₽</b>\n\n"
-            f"Утилизационный сбор:\n<b>${format_number(car_data['util_fee_usd'])}</b> | <b>₩{format_number(car_data['util_fee_krw'])}</b> | <b>{format_number(car_data['util_fee_rub'])} ₽</b>\n\n"
+            f"Утилизационный сбор:\n<b>${format_number(car_data['util_fee_usd'])}</b> | <b>₩{format_number(car_data['util_fee_krw'])}</b> | <b>{format_number(car_data['util_fee_rub'])} ₽</b>\n\n\n"
             f"Брокер-Владивосток:\n<b>${format_number(car_data['broker_russia_usd'])}</b> | <b>₩{format_number(car_data['broker_russia_krw'])}</b> | <b>{format_number(car_data['broker_russia_rub'])} ₽</b>\n\n"
             f"СВХ-Владивосток:\n<b>${format_number(car_data['svh_russia_usd'])}</b> | <b>₩{format_number(car_data['svh_russia_krw'])}</b> | <b>{format_number(car_data['svh_russia_rub'])} ₽</b>\n\n"
             f"Лаборатория, СБКТС, ЭПТС:\n<b>${format_number(car_data['lab_russia_usd'])}</b> | <b>₩{format_number(car_data['lab_russia_krw'])}</b> | <b>{format_number(car_data['lab_russia_rub'])} ₽</b>\n\n"
@@ -703,6 +720,11 @@ def handle_callback_query(call):
         bot.send_message(user_id, "Введите месяц выпуска (например, 10 для октября):")
         bot.register_next_step_handler(call.message, process_manual_month)
 
+    elif call.data == "main_menu":
+        bot.send_message(
+            call.message.chat.id, "📌 Главное меню", reply_markup=main_menu()
+        )
+
 
 @bot.message_handler(func=lambda message: True)
 def handle_message(message):
@@ -745,13 +767,13 @@ def handle_message(message):
     elif user_message == "Почему стоит выбрать нас?":
         about_message = (
             "🔹 *Почему выбирают GetAuto?*\n\n"
-            "🚗 *Экспертный опыт* — Мы знаем все нюансы подбора и доставки авто из Южной Кореи.\n"
-            "🎯 *Индивидуальный подход* — Учитываем все пожелания клиентов, подбираем оптимальный вариант.\n"
-            "🔧 *Комплексное обслуживание* — Полное сопровождение на всех этапах сделки.\n"
-            "✅ *Гарантированное качество* — Проверенные авто, прозрачная история и состояние.\n"
-            "💰 *Прозрачность ценообразования* — Честные цены, без скрытых платежей и комиссий.\n"
+            "🚗 *Экспертный опыт* — Мы знаем все нюансы подбора и доставки авто из Южной Кореи.\n\n"
+            "🎯 *Индивидуальный подход* — Учитываем все пожелания клиентов, подбираем оптимальный вариант.\n\n"
+            "🔧 *Комплексное обслуживание* — Полное сопровождение на всех этапах сделки.\n\n"
+            "✅ *Гарантированное качество* — Проверенные авто, прозрачная история и состояние.\n\n"
+            "💰 *Прозрачность ценообразования* — Честные цены, без скрытых платежей и комиссий.\n\n"
             "🚛 *Надежная логистика* — Организуем доставку авто в любую точку СНГ.\n\n"
-            "📲 Свяжитесь с нами и получите расчёт прямо сейчас!"
+            f"📲 Свяжитесь с нами и получите расчёт прямо сейчас! @GetAuto\\_manager\\_bot"
         )
         bot.send_message(message.chat.id, about_message, parse_mode="Markdown")
 

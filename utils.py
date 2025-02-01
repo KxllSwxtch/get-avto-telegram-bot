@@ -1,11 +1,83 @@
+import requests
 import datetime
 import locale
 import math
 import gc
 
 
+def clean_number(value):
+    """Очищает строку от пробелов и преобразует в число"""
+    return int(float(value.replace(" ", "").replace(",", ".")))
+
+
+def get_customs_fees(engine_volume, car_price, car_year, car_month, engine_type=1):
+    """
+    Запрашивает расчёт таможенных платежей с сайта calcus.ru.
+    :param engine_volume: Объём двигателя (куб. см)
+    :param car_price: Цена авто в вонах
+    :param car_year: Год выпуска авто
+    :param engine_type: Тип двигателя (1 - бензин, 2 - дизель, 3 - гибрид, 4 - электромобиль)
+    :return: JSON с результатами расчёта
+    """
+    url = "https://calcus.ru/calculate/Customs"
+
+    payload = {
+        "owner": 1,  # Физлицо
+        "age": calculate_age(car_year, car_month),  # Возрастная категория
+        "engine": engine_type,  # Тип двигателя (по умолчанию 1 - бензин)
+        "power": 1,  # Лошадиные силы (можно оставить 1)
+        "power_unit": 1,  # Тип мощности (1 - л.с.)
+        "value": int(engine_volume),  # Объём двигателя
+        "price": int(car_price),  # Цена авто в KRW
+        "curr": "KRW",  # Валюта
+    }
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+        "Referer": "https://calcus.ru/",
+        "Origin": "https://calcus.ru",
+        "Content-Type": "application/x-www-form-urlencoded",
+    }
+
+    try:
+        response = requests.post(url, data=payload, headers=headers)
+        response.raise_for_status()
+        return response.json()
+    except requests.RequestException as e:
+        print(f"Ошибка при запросе к calcus.ru: {e}")
+        return None
+
+
+# Utility function to calculate the age category
+# BACKUP
+# def calculate_age(year, month):
+#     # Убираем ведущий ноль у месяца, если он есть
+#     month = int(month.lstrip("0")) if isinstance(month, str) else int(month)
+
+#     current_date = datetime.datetime.now()
+#     car_date = datetime.datetime(year=int(year), month=month, day=1)
+
+#     age_in_months = (
+#         (current_date.year - car_date.year) * 12 + current_date.month - car_date.month
+#     )
+
+#     if age_in_months < 36:
+#         return f"До 3 лет"
+#     elif 36 <= age_in_months < 60:
+#         return f"от 3 до 5 лет"
+#     else:
+#         return f"от 5 лет"
+
+
 # Utility function to calculate the age category
 def calculate_age(year, month):
+    """
+    Рассчитывает возрастную категорию автомобиля по классификации calcus.ru.
+
+    :param year: Год выпуска автомобиля
+    :param month: Месяц выпуска автомобиля
+    :return: Возрастная категория ("0-3", "3-5", "5-7", "7-0")
+    """
     # Убираем ведущий ноль у месяца, если он есть
     month = int(month.lstrip("0")) if isinstance(month, str) else int(month)
 
@@ -17,11 +89,13 @@ def calculate_age(year, month):
     )
 
     if age_in_months < 36:
-        return f"До 3 лет"
+        return "0-3"
     elif 36 <= age_in_months < 60:
-        return f"от 3 до 5 лет"
+        return "3-5"
+    elif 60 <= age_in_months < 84:
+        return "5-7"
     else:
-        return f"от 5 лет"
+        return "7-0"
 
 
 def format_number(number):
