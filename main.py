@@ -377,7 +377,7 @@ def calculate_cost(link, message):
             + (100000 * krw_rub_rate)
             + (350000 * krw_rub_rate)
             + (600 * usd_rate)
-            + (customs_duty)
+            + customs_duty
             + customs_fee
             + recycling_fee
             + (346 * usd_rate)
@@ -440,7 +440,7 @@ def calculate_cost(link, message):
         car_data["korea_total_rub"] = (
             (50000)
             + (1000000 * krw_rub_rate)
-            + ((price_krw - 1000000) * krw_rub_rate)
+            + (price_krw * krw_rub_rate)
             + (440000 * krw_rub_rate)
             + (100000 * krw_rub_rate)
             + (350000 * krw_rub_rate)
@@ -932,11 +932,11 @@ def calculate_manual_cost(user_id):
         + (440000 * krw_rub_rate)
         + (100000 * krw_rub_rate)
         + (350000 * krw_rub_rate)
-        + (600 / usd_rate)
+        + (600 * usd_rate)
         + (customs_duty)
         + customs_fee
         + recycling_fee
-        + (346 / usd_rate)
+        + (346 * usd_rate)
         + 50000
         + 30000
         + 8000
@@ -996,7 +996,7 @@ def calculate_manual_cost(user_id):
     car_data["korea_total_rub"] = (
         (50000)
         + (1000000 * krw_rub_rate)
-        + ((price_krw - 1000000) * krw_rub_rate)
+        + (price_krw * krw_rub_rate)
         + (440000 * krw_rub_rate)
         + (100000 * krw_rub_rate)
         + (350000 * krw_rub_rate)
