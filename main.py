@@ -895,7 +895,7 @@ def calculate_manual_cost(user_id):
     month = data["month"]
     year = data["year"]
 
-    car_engine_displacement = int(round_engine_volume(engine_volume))
+    car_engine_displacement = int(engine_volume)
 
     # Форматирование данных
     engine_volume_formatted = f"{format_number(car_engine_displacement)} cc"
@@ -917,7 +917,7 @@ def calculate_manual_cost(user_id):
         car_engine_displacement,
         price_krw,
         year,
-        car_month,
+        month,
         engine_type=1,
     )
 
