@@ -942,7 +942,7 @@ def calculate_manual_cost(user_id):
     )
 
     total_cost_usd = total_cost / usd_rate
-    total_cost_krw = total_cost * rub_to_krw_rate
+    total_cost_krw = total_cost / krw_rub_rate
 
     car_data["agent_korea_rub"] = 50000
     car_data["agent_korea_usd"] = 50000 / usd_rate
