@@ -916,7 +916,7 @@ def calculate_manual_cost(user_id):
     response = get_customs_fees(
         car_engine_displacement,
         price_krw,
-        int(f"20{car_year}"),
+        year,
         car_month,
         engine_type=1,
     )
