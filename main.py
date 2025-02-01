@@ -107,7 +107,7 @@ def get_currency_rates():
     usd_rate = usd
 
     # Добавляем 3% к курсу воны к рублю (как в HTML-калькуляторе)
-    krw = round(krw, 3) * 1.035
+    krw = round(krw, 5) * 1.035
     krw_rub_rate = krw
 
     eur_rub_rate = eur
