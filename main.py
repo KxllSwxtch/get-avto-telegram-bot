@@ -903,24 +903,18 @@ def calculate_manual_cost(user_id):
 
     # Конвертируем стоимость авто в рубли
     price_krw = int(price_krw)
-    car_price_rub = price_krw * krw_rub_rate
 
-    # Таможенный сбор
-    customs_fee = calculate_customs_fee(car_price_rub)
-
-    # Таможенная пошлина
-    car_price_eur = car_price_rub / eur_rub_rate
-    customs_duty = calculate_customs_duty(
-        car_price_eur,
+    response = get_customs_fees(
         car_engine_displacement,
-        eur_rub_rate,
-        age_formatted.lower(),
+        price_krw,
+        int(f"20{car_year}"),
+        car_month,
+        engine_type=1,
     )
 
-    # Рассчитываем утилизационный сбор
-    recycling_fee = calculate_recycling_fee(
-        int(car_engine_displacement), age_formatted.lower()
-    )
+    customs_fee = clean_number(response["sbor"])
+    customs_duty = clean_number(response["tax"])
+    recycling_fee = clean_number(response["util"])
 
     # Расчет итоговой стоимости автомобиля в рублях
     total_cost = (
