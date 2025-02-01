@@ -17,6 +17,7 @@ from utils import (
     format_number,
     get_customs_fees,
     clean_number,
+    get_rub_to_krw_rate,
 )
 
 CALCULATE_CAR_TEXT = "Расчёт по ссылке с Encar"
@@ -59,6 +60,7 @@ car_year = None
 usd_rate = 0
 krw_rub_rate = None
 eur_rub_rate = None
+rub_to_krw_rate = None
 
 vehicle_id = None
 vehicle_no = None
@@ -265,7 +267,7 @@ def get_car_info(url):
 
 # Function to calculate the total cost
 def calculate_cost(link, message):
-    global car_data, car_id_external, car_month, car_year, krw_rub_rate, eur_rub_rate
+    global car_data, car_id_external, car_month, car_year, krw_rub_rate, eur_rub_rate, rub_to_krw_rate
 
     print_message("ЗАПРОС НА РАСЧЁТ АВТОМОБИЛЯ")
 
@@ -335,7 +337,6 @@ def calculate_cost(link, message):
 
         # Конвертируем стоимость авто в рубли
         price_krw = int(car_price) * 10000
-        car_price_rub = price_krw * krw_rub_rate
 
         response = get_customs_fees(
             car_engine_displacement,
@@ -445,7 +446,7 @@ def calculate_cost(link, message):
 
         # Расходы Россия
         car_data["customs_duty_usd"] = customs_duty / usd_rate
-        car_data["customs_duty_krw"] = customs_duty / krw_rub_rate
+        car_data["customs_duty_krw"] = customs_duty * rub_to_krw_rate
         car_data["customs_duty_rub"] = customs_duty
 
         car_data["customs_fee_usd"] = customs_fee / usd_rate
@@ -884,6 +885,8 @@ def process_manual_price(message):
 
 # Функция расчёта стоимости авто
 def calculate_manual_cost(user_id):
+    global rub_to_krw_rate, usd_rate, krw_rub_rate
+
     data = user_manual_input[user_id]
 
     price_krw = data["price_krw"]
@@ -939,7 +942,7 @@ def calculate_manual_cost(user_id):
     )
 
     total_cost_usd = total_cost / usd_rate
-    total_cost_krw = total_cost / krw_rub_rate
+    total_cost_krw = total_cost * rub_to_krw_rate
 
     car_data["agent_korea_rub"] = 50000
     car_data["agent_korea_usd"] = 50000 / usd_rate
@@ -1001,7 +1004,7 @@ def calculate_manual_cost(user_id):
 
     # Расходы Россия
     car_data["customs_duty_usd"] = customs_duty / usd_rate
-    car_data["customs_duty_krw"] = customs_duty / krw_rub_rate
+    car_data["customs_duty_krw"] = customs_duty * rub_to_krw_rate
     car_data["customs_duty_rub"] = customs_duty
 
     car_data["customs_fee_usd"] = customs_fee / usd_rate
@@ -1063,7 +1066,7 @@ def calculate_manual_cost(user_id):
 
 # Run the bot
 if __name__ == "__main__":
-    # initialize_db()
+    rub_to_krw_rate = get_rub_to_krw_rate()
     get_currency_rates()
     set_bot_commands()
     bot.polling(non_stop=True)

@@ -5,6 +5,21 @@ import math
 import gc
 
 
+def get_rub_to_krw_rate():
+    url = "https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/rub.json"
+
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        data = response.json()
+        original_rate = data["rub"]["krw"]
+        adjusted_rate = original_rate * 1.03
+        return adjusted_rate
+    except requests.RequestException as e:
+        print(f"Error fetching exchange rate: {e}")
+        return None
+
+
 def clean_number(value):
     """Очищает строку от пробелов и преобразует в число"""
     return int(float(value.replace(" ", "").replace(",", ".")))
