@@ -899,7 +899,16 @@ def calculate_manual_cost(user_id):
 
     # Форматирование данных
     engine_volume_formatted = f"{format_number(car_engine_displacement)} cc"
-    age_formatted = calculate_age(year, month)
+    age = calculate_age(year, month)
+    age_formatted = (
+        "до 3 лет"
+        if age == "0-3"
+        else (
+            "от 3 до 5 лет"
+            if age == "3-5"
+            else "от 5 до 7 лет" if age == "5-7" else "от 7 лет"
+        )
+    )
 
     # Конвертируем стоимость авто в рубли
     price_krw = int(price_krw)
@@ -932,8 +941,6 @@ def calculate_manual_cost(user_id):
         + 30000
         + 8000
     )
-
-    print(price_krw, krw_rub_rate, usd_rate)
 
     total_cost_usd = total_cost / usd_rate
     total_cost_krw = total_cost / krw_rub_rate
