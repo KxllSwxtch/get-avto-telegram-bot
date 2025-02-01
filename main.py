@@ -12,11 +12,7 @@ from telebot import types
 from dotenv import load_dotenv
 from urllib.parse import urlparse, parse_qs
 from utils import (
-    calculate_customs_fee,
     clear_memory,
-    calculate_customs_duty,
-    calculate_recycling_fee,
-    round_engine_volume,
     calculate_age,
     format_number,
     get_customs_fees,
@@ -1005,7 +1001,7 @@ def calculate_manual_cost(user_id):
 
     # Расходы Россия
     car_data["customs_duty_usd"] = customs_duty / usd_rate
-    car_data["customs_duty_krw"] = customs_duty * krw_rub_rate
+    car_data["customs_duty_krw"] = customs_duty / krw_rub_rate
     car_data["customs_duty_rub"] = customs_duty
 
     car_data["customs_fee_usd"] = customs_fee / usd_rate
