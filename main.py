@@ -11,6 +11,8 @@ import urllib.parse
 from telebot import types
 from dotenv import load_dotenv
 from urllib.parse import urlparse, parse_qs
+from get_google_krwrub_rate import get_krwrub_rate
+from get_google_usdrub_rate import get_usdrub_rate
 from utils import (
     clear_memory,
     calculate_age,
@@ -19,6 +21,7 @@ from utils import (
     clean_number,
     get_rub_to_krw_rate,
 )
+
 
 CALCULATE_CAR_TEXT = "Расчёт по ссылке с Encar"
 MANUAL_CAR_TEXT = "Расчёт стоимости вручную"
@@ -96,19 +99,16 @@ def get_currency_rates():
     eur = data["Valute"]["EUR"]["Value"] + (
         data["Valute"]["EUR"]["Value"] * DEALER_COMMISSION
     )
-    usd = data["Valute"]["USD"]["Value"] + (
-        data["Valute"]["USD"]["Value"] * DEALER_COMMISSION
-    )
-    krw = (
-        data["Valute"]["KRW"]["Value"]
-        + (data["Valute"]["KRW"]["Value"] * DEALER_COMMISSION)
-    ) / data["Valute"]["KRW"]["Nominal"]
 
+    # usd = data["Valute"]["USD"]["Value"] + (
+    #     data["Valute"]["USD"]["Value"] * DEALER_COMMISSION
+    # )
+
+    usd = get_usdrub_rate()
     usd_rate = usd
 
-    # Добавляем 3% к курсу воны к рублю (как в HTML-калькуляторе)
-    krw = round(krw, 5) * 1.035
-    krw_rub_rate = round(krw, 5)
+    krw = get_krwrub_rate()
+    krw_rub_rate = krw
 
     eur_rub_rate = eur
 
