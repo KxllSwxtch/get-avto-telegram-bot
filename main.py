@@ -69,6 +69,17 @@ vehicle_id = None
 vehicle_no = None
 
 
+def is_subscribed(user_id):
+    """Проверяет, подписан ли пользователь на канал GetAuto"""
+    channel_username = "@Getauto_kor"
+    try:
+        chat_member = bot.get_chat_member(channel_username, user_id)
+        return chat_member.status in ["member", "administrator", "creator"]
+    except Exception as e:
+        print(f"Ошибка при проверке подписки: {e}")
+        return False  # Если ошибка, предполагаем, что не подписан
+
+
 def print_message(message):
     print("\n\n##############")
     print(f"{message}")
@@ -169,13 +180,33 @@ def main_menu():
 def send_welcome(message):
     user = message.from_user
     user_first_name = user.first_name
+    user_id = message.chat.id
 
+    if not is_subscribed(user_id):
+        # Если пользователь не подписан, отправляем сообщение и не даем пользоваться ботом
+        keyboard = types.InlineKeyboardMarkup()
+        keyboard.add(
+            types.InlineKeyboardButton("🔗 Подписаться", url="https://t.me/Getauto_kor")
+        )
+        keyboard.add(
+            types.InlineKeyboardButton(
+                "✅ Проверить подписку", callback_data="check_subscription"
+            )
+        )
+        bot.send_message(
+            user_id,
+            "🚫 Для использования бота, пожалуйста, подпишитесь на наш канал!",
+            reply_markup=keyboard,
+        )
+        return  # Прерываем выполнение функции
+
+    # Если подписан — продолжаем работу
     welcome_message = (
         f"Здравствуйте, {user_first_name}!\n\n"
-        "Я бот компании GetAuto. Я помогу вам расчитать стоимость понравившегося вам автомобиля из Южной Кореи до Владивостока\n\n"
-        "Выберите действие из меню ниже"
+        "Я бот компании GetAuto. Я помогу вам расчитать стоимость понравившегося вам автомобиля из Южной Кореи до Владивостока.\n\n"
+        "Выберите действие из меню ниже."
     )
-    bot.send_message(message.chat.id, welcome_message, reply_markup=main_menu())
+    bot.send_message(user_id, welcome_message, reply_markup=main_menu())
 
 
 # Error handling function
@@ -722,6 +753,32 @@ def handle_callback_query(call):
             call.message.chat.id, "📌 Главное меню", reply_markup=main_menu()
         )
 
+    elif call.data == "check_subscription":
+        user_id = call.message.chat.id
+        if is_subscribed(user_id):
+            bot.send_message(
+                user_id,
+                "✅ Вы успешно подписаны! Теперь можете пользоваться ботом.",
+                reply_markup=main_menu(),
+            )
+        else:
+            keyboard = types.InlineKeyboardMarkup()
+            keyboard.add(
+                types.InlineKeyboardButton(
+                    "🔗 Подписаться", url="https://t.me/Getauto_kor"
+                )
+            )
+            keyboard.add(
+                types.InlineKeyboardButton(
+                    "✅ Проверить подписку", callback_data="check_subscription"
+                )
+            )
+            bot.send_message(
+                user_id,
+                "🚫 Вы еще не подписались на канал! Подпишитесь и попробуйте снова.",
+                reply_markup=keyboard,
+            )
+
 
 @bot.message_handler(func=lambda message: True)
 def handle_message(message):
@@ -729,6 +786,23 @@ def handle_message(message):
 
     user_id = message.chat.id
     user_message = message.text.strip()
+
+    if not is_subscribed(user_id):
+        keyboard = types.InlineKeyboardMarkup()
+        keyboard.add(
+            types.InlineKeyboardButton("🔗 Подписаться", url="https://t.me/Getauto_kor")
+        )
+        keyboard.add(
+            types.InlineKeyboardButton(
+                "✅ Проверить подписку", callback_data="check_subscription"
+            )
+        )
+        bot.send_message(
+            user_id,
+            "🚫 Для использования бота, пожалуйста, подпишитесь на наш канал!",
+            reply_markup=keyboard,
+        )
+        return  # Прерываем выполнение
 
     # Проверяем нажатие кнопки "Рассчитать автомобиль"
     if user_message == CALCULATE_CAR_TEXT:
