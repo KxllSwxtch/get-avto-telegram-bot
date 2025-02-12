@@ -540,7 +540,7 @@ def calculate_cost(link, message):
             f"Стоимость автомобиля в Корее: ₩{format_number(price_krw)}\n"
             f"Объём двигателя: {engine_volume_formatted}\n"
             f"КПП: {formatted_transmission}\n\n"
-            f"Примерная стоимость автомобиля под ключ до Владивостока: \n<b>${format_number(total_cost_usd)} </b> | <b>₩{format_number(total_cost_krw)} </b> | <b>{format_number(total_cost)} ₽</b>\n\n"
+            f"Стоимость автомобиля под ключ до Владивостока: \n<b>${format_number(total_cost_usd)} </b> | <b>₩{format_number(total_cost_krw)} </b> | <b>{format_number(total_cost)} ₽</b>\n\n"
             f"🔗 <a href='{preview_link}'>Ссылка на автомобиль</a>\n\n"
             "Если данное авто попадает под санкции, пожалуйста уточните возможность отправки в вашу страну у менеджера @GetAuto_manager_bot\n\n"
             "🔗 <a href='https://t.me/Getauto_kor'>Официальный телеграм канал</a>\n"
