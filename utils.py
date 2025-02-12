@@ -3,6 +3,19 @@ import datetime
 import locale
 import math
 import gc
+import re
+
+
+def generate_encar_photo_url(photo_path):
+    """
+    Формирует правильный URL для фотографий Encar.
+    Пример результата: https://ci.encar.com/carpicture02/pic3902/39027097_006.jpg
+    """
+
+    base_url = "https://ci.encar.com"
+    photo_url = f"{base_url}/{photo_path}"
+
+    return photo_url
 
 
 def get_rub_to_krw_rate():

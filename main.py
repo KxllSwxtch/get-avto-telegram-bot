@@ -8,6 +8,7 @@ import datetime
 import logging
 import urllib.parse
 
+from io import BytesIO
 from telebot import types
 from dotenv import load_dotenv
 from urllib.parse import urlparse, parse_qs
@@ -20,6 +21,7 @@ from utils import (
     get_customs_fees,
     clean_number,
     get_rub_to_krw_rate,
+    generate_encar_photo_url,
 )
 
 
@@ -246,20 +248,39 @@ def get_car_info(url):
 
     response = requests.get(url, headers=headers).json()
 
+    # Информация об автомобиле
+    car_make = response["category"]["manufacturerEnglishName"]  # Марка
+    car_model = response["category"]["modelGroupEnglishName"]  # Модель
+    car_trim = response["category"]["gradeDetailEnglishName"] or ""  # Комплектация
+
+    car_title = f"{car_make} {car_model} {car_trim}"  # Заголовок
+
     # Получаем все необходимые данные по автомобилю
     car_price = str(response["advertisement"]["price"])
     car_date = response["category"]["yearMonth"]
-
     year = car_date[2:4]
     month = car_date[4:]
-
     car_year = year
     car_month = month
+
+    # Пробег (форматирование)
+    mileage = response["spec"]["mileage"]
+    formatted_mileage = f"{mileage:,} км"
+
+    # Тип КПП
+    transmission = response["spec"]["transmissionName"]
+    formatted_transmission = "Автомат" if "오토" in transmission else "Механика"
 
     car_engine_displacement = str(response["spec"]["displacement"])
     car_type = response["spec"]["bodyName"]
 
-    # Для получения данных по страховым выплатам
+    # Список фотографий (берем первые 10)
+    car_photos = [
+        generate_encar_photo_url(photo["path"]) for photo in response["photos"][:10]
+    ]
+    car_photos = [url for url in car_photos if url]
+
+    # Дополнительные данные
     vehicle_no = response["vehicleNo"]
     vehicle_id = response["vehicleId"]
 
@@ -293,7 +314,17 @@ def get_car_info(url):
     conn.close()
     print("Автомобиль был сохранён в базе данных")
 
-    return [car_price, car_engine_displacement, formatted_car_date]
+    return [
+        car_price,
+        car_engine_displacement,
+        formatted_car_date,
+        car_title,
+        formatted_mileage,
+        formatted_transmission,
+        car_photos,
+        year,
+        month,
+    ]
 
 
 # Function to calculate the total cost
@@ -326,7 +357,17 @@ def calculate_cost(link, message):
         car_id = query_params.get("carid", [None])[0]
 
     result = get_car_info(link)
-    car_price, car_engine_displacement, formatted_car_date = result
+    (
+        car_price,
+        car_engine_displacement,
+        formatted_car_date,
+        car_title,
+        formatted_mileage,
+        formatted_transmission,
+        car_photos,
+        year,
+        month,
+    ) = result
 
     if not car_price and car_engine_displacement and formatted_car_date:
         keyboard = types.InlineKeyboardMarkup()
@@ -378,23 +419,8 @@ def calculate_cost(link, message):
         )
 
         # Таможенный сбор
-        # customs_fee = calculate_customs_fee(car_price_rub)
         customs_fee = clean_number(response["sbor"])
-
-        # Таможенная пошлина
-        # car_price_eur = car_price_rub / eur_rub_rate
-        # customs_duty = calculate_customs_duty(
-        #     car_price_eur,
-        #     int(round_engine_volume(car_engine_displacement)),
-        #     eur_rub_rate,
-        #     age_formatted.lower(),
-        # )
         customs_duty = clean_number(response["tax"])
-
-        # Рассчитываем утилизационный сбор
-        # recycling_fee = calculate_recycling_fee(
-        #     int(round_engine_volume(car_engine_displacement)), age_formatted.lower()
-        # )
         recycling_fee = clean_number(response["util"])
 
         # Расчет итоговой стоимости автомобиля в рублях
@@ -508,9 +534,12 @@ def calculate_cost(link, message):
 
         # Формирование сообщения результата
         result_message = (
-            f"Возраст: {age_formatted}\n"
+            f"{car_title}\n\n"
+            f"Возраст: {age_formatted} (дата регистрации: {month}/{year})\n"
+            f"Пробег: {formatted_mileage}\n"
             f"Стоимость автомобиля в Корее: ₩{format_number(price_krw)}\n"
-            f"Объём двигателя: {engine_volume_formatted}\n\n"
+            f"Объём двигателя: {engine_volume_formatted}\n"
+            f"КПП: {formatted_transmission}\n\n"
             f"Примерная стоимость автомобиля под ключ до Владивостока: \n<b>${format_number(total_cost_usd)} </b> | <b>₩{format_number(total_cost_krw)} </b> | <b>{format_number(total_cost)} ₽</b>\n\n"
             f"🔗 <a href='{preview_link}'>Ссылка на автомобиль</a>\n\n"
             "Если данное авто попадает под санкции, пожалуйста уточните возможность отправки в вашу страну у менеджера @GetAuto_manager_bot\n\n"
@@ -539,6 +568,30 @@ def calculate_cost(link, message):
                 callback_data="calculate_another",
             )
         )
+
+        # Отправляем до 10 фотографий
+        media_group = []
+        for photo_url in sorted(car_photos):
+            try:
+                response = requests.get(photo_url)
+                if response.status_code == 200:
+                    photo = BytesIO(response.content)  # Загружаем фото в память
+                    media_group.append(
+                        types.InputMediaPhoto(photo)
+                    )  # Добавляем в список
+
+                    # Если набрали 10 фото, отправляем альбом
+                    if len(media_group) == 10:
+                        bot.send_media_group(message.chat.id, media_group)
+                        media_group.clear()  # Очищаем список для следующей группы
+                else:
+                    print(f"Ошибка загрузки фото: {photo_url} - {response.status_code}")
+            except Exception as e:
+                print(f"Ошибка при обработке фото {photo_url}: {e}")
+
+        # Отправка оставшихся фото, если их меньше 10
+        if media_group:
+            bot.send_media_group(message.chat.id, media_group)
 
         bot.send_message(
             message.chat.id,
