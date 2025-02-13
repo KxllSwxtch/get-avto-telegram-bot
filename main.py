@@ -28,10 +28,7 @@ from utils import (
 CALCULATE_CAR_TEXT = "Расчёт по ссылке с Encar"
 MANUAL_CAR_TEXT = "Расчёт стоимости вручную"
 DEALER_COMMISSION = 0.00  # 2%
-
-
-# Настройка БД
-DATABASE_URL = "postgres://uea5qru3fhjlj:p44343a46d4f1882a5ba2413935c9b9f0c284e6e759a34cf9569444d16832d4fe@c97r84s7psuajm.cluster-czrs8kj4isg7.us-east-1.rds.amazonaws.com:5432/d9pr93olpfl9bj"
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 
 # Configure logging
@@ -58,7 +55,7 @@ user_manual_input = {}
 car_id_external = ""
 total_car_price = 0
 users = set()
-admins = [7311593407, 728438182]
+admins = [728438182, 7311646338]  # админы
 car_month = None
 car_year = None
 
@@ -69,6 +66,105 @@ rub_to_krw_rate = None
 
 vehicle_id = None
 vehicle_no = None
+
+# Настройка базы данных
+import psycopg2
+from psycopg2 import sql
+from telebot import types
+
+# Подключение к базе данных
+DATABASE_URL = os.getenv("DATABASE_URL")
+conn = psycopg2.connect(DATABASE_URL, sslmode="require")
+cursor = conn.cursor()
+print("✅ Успешное подключение к БД")
+
+
+def save_user_to_db(user_id, username, first_name, phone_number):
+    """Сохраняет пользователя в базу данных."""
+    if username is None or phone_number is None:
+        return  # Пропускаем пользователей с скрытыми данными
+
+    try:
+        conn = psycopg2.connect(DATABASE_URL, sslmode="require")
+        cursor = conn.cursor()
+
+        # SQL-запрос для вставки данных
+        query = sql.SQL(
+            """
+            INSERT INTO users (user_id, username, first_name, phone_number)
+            VALUES (%s, %s, %s, %s)
+            ON CONFLICT (user_id) DO NOTHING;
+        """
+        )
+
+        cursor.execute(query, (user_id, username, first_name, phone_number))
+        conn.commit()
+        cursor.close()
+        conn.close()
+    except Exception as e:
+        print(f"Ошибка при сохранении пользователя: {e}")
+
+
+@bot.message_handler(commands=["start"])
+def send_welcome(message):
+    """Команда /start — сохраняет пользователя и приветствует его"""
+    user = message.from_user
+    user_id = user.id
+    username = user.username
+    first_name = user.first_name
+
+    # Пропускаем пользователей без username
+    if username is None:
+        bot.send_message(
+            message.chat.id,
+            "❌ У вас скрытый профиль. Пожалуйста, укажите username в настройках Telegram!",
+        )
+        return
+
+    save_user_to_db(user_id, username, first_name, "")
+
+    bot.send_message(
+        message.chat.id,
+        f"Здравствуйте, {first_name}! 👋\n\n"
+        "Я бот компании GetAuto. Я помогу вам рассчитать стоимость автомобиля из Южной Кореи до Владивостока.",
+        reply_markup=main_menu(),
+    )
+
+
+@bot.message_handler(commands=["stats"])
+def show_statistics(message):
+    """Команда /статистика доступна только администраторам"""
+    user_id = message.chat.id  # Получаем user_id того, кто запустил команду
+
+    if user_id not in admins:
+        bot.send_message(user_id, "❌ У вас нет доступа к этой команде.")
+        return
+
+    try:
+        conn = psycopg2.connect(DATABASE_URL, sslmode="require")
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT user_id, username, first_name, created_at FROM users;")
+        users = cursor.fetchall()
+
+        cursor.close()
+        conn.close()
+
+        if not users:
+            bot.send_message(user_id, "📊 В базе пока нет пользователей.")
+            return
+
+        stats_message = "📊 <b>Статистика пользователей:</b>\n\n"
+        for user in users:
+            user_id_db, username, first_name, created_at = user
+            stats_message += f"👤 <b>{first_name}</b> (@{username}) — {created_at.strftime('%Y-%m-%d')}\n"
+
+        bot.send_message(
+            user_id, stats_message, parse_mode="HTML"
+        )  # Отправляем ответ тому, кто вызвал команду
+    except Exception as e:
+        bot.send_message(user_id, "❌ Ошибка при получении статистики.")
+        print(f"Ошибка статистики: {e}")
 
 
 def is_subscribed(user_id):
@@ -94,7 +190,7 @@ def set_bot_commands():
     commands = [
         types.BotCommand("start", "Запустить бота"),
         types.BotCommand("cbr", "Курсы валют"),
-        # types.BotCommand("stats", "Статистика"),
+        types.BotCommand("stats", "Статистика"),
     ]
     bot.set_my_commands(commands)
 
@@ -173,6 +269,7 @@ def main_menu():
         types.KeyboardButton("Почему стоит выбрать нас?"),
         types.KeyboardButton("Мы в соц. сетях"),
         types.KeyboardButton("Написать в WhatsApp"),
+        types.KeyboardButton("Оформить кредит"),
     )
     return keyboard
 
@@ -181,8 +278,12 @@ def main_menu():
 @bot.message_handler(commands=["start"])
 def send_welcome(message):
     user = message.from_user
-    user_first_name = user.first_name
-    user_id = message.chat.id
+    user_id = user.id
+    username = user.username
+    first_name = user.first_name
+    phone_number = (
+        user.phone_number if hasattr(user, "phone_number") else None
+    )  # Получаем номер телефона
 
     if not is_subscribed(user_id):
         # Если пользователь не подписан, отправляем сообщение и не даем пользоваться ботом
@@ -204,7 +305,7 @@ def send_welcome(message):
 
     # Если подписан — продолжаем работу
     welcome_message = (
-        f"Здравствуйте, {user_first_name}!\n\n"
+        f"Здравствуйте, {first_name}!\n\n"
         "Я бот компании GetAuto. Я помогу вам расчитать стоимость понравившегося вам автомобиля из Южной Кореи до Владивостока.\n\n"
         "Выберите действие из меню ниже."
     )
@@ -291,28 +392,6 @@ def get_car_info(url):
     print_message(
         f"ID: {car_id}\nType: {formatted_car_type}\nDate: {formatted_car_date}\nCar Engine Displacement: {car_engine_displacement}\nPrice: {car_price} KRW"
     )
-
-    # Сохранение данных в базу
-    conn = psycopg2.connect(DATABASE_URL, sslmode="require")
-    cursor = conn.cursor()
-    cursor.execute(
-        """
-        INSERT INTO car_info (car_id, date, engine_volume, price, car_type)
-        VALUES (%s, %s, %s, %s, %s)
-        ON CONFLICT (car_id) DO NOTHING
-        """,
-        (
-            car_id,
-            formatted_car_date,
-            car_engine_displacement,
-            car_price,
-            formatted_car_type,
-        ),
-    )
-    conn.commit()
-    cursor.close()
-    conn.close()
-    print("Автомобиль был сохранён в базе данных")
 
     return [
         car_price,
@@ -912,11 +991,89 @@ def handle_message(message):
 
         bot.send_message(message.chat.id, message_text)
 
+    elif user_message == "Оформить кредит":
+        bot.send_message(message.chat.id, "Введите ваше ФИО (Фамилия Имя Отчество):")
+        bot.register_next_step_handler(message, process_credit_full_name)
+
     else:
         bot.send_message(
             message.chat.id,
             "Пожалуйста, введите корректную ссылку на автомобиль с сайта www.encar.com или fem.encar.com.",
         )
+
+
+#######################
+# Для обработки заявки на кредит #
+#######################
+def process_credit_full_name(message):
+    user_id = message.chat.id
+    full_name = message.text.strip()
+
+    # Проверяем, что ФИО содержит хотя бы 2 слова
+    if len(full_name.split()) < 2:
+        bot.send_message(user_id, "❌ Введите корректное ФИО (Фамилия Имя Отчество):")
+        bot.register_next_step_handler(message, process_credit_full_name)
+        return
+
+    # Сохраняем в переменную и переходим к номеру телефона
+    bot.send_message(user_id, "Введите ваш номер телефона:")
+    bot.register_next_step_handler(message, process_credit_phone, full_name)
+
+
+def process_credit_phone(message, full_name):
+    user_id = message.chat.id
+    phone_number = message.text.strip()
+
+    # Проверка номера телефона
+    if not re.match(r"^\+?\d{10,15}$", phone_number):
+        bot.send_message(user_id, "❌ Введите корректный номер телефона:")
+        bot.register_next_step_handler(message, process_credit_phone, full_name)
+        return
+
+    # Сохраняем заявку в базу данных
+    save_credit_application(user_id, full_name, phone_number)
+
+    bot.send_message(
+        user_id, "✅ Ваша заявка на кредит успешно отправлена! Мы с вами свяжемся."
+    )
+
+
+def process_credit_phone(message, full_name):
+    user_id = message.chat.id
+    phone_number = message.text.strip()
+
+    # Проверка номера телефона
+    if not re.match(r"^\+?\d{10,15}$", phone_number):
+        bot.send_message(user_id, "❌ Введите корректный номер телефона:")
+        bot.register_next_step_handler(message, process_credit_phone, full_name)
+        return
+
+    # Сохраняем заявку в базу данных
+    save_credit_application(user_id, full_name, phone_number)
+
+    bot.send_message(
+        user_id,
+        "✅ Ваша заявка на кредит успешно отправлена! Мы с вами свяжемся.",
+        reply_markup=main_menu(),
+    )
+
+
+def save_credit_application(user_id, full_name, phone_number):
+    conn = psycopg2.connect(DATABASE_URL, sslmode="require")
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        INSERT INTO credit_applications (user_id, full_name, phone_number)
+        VALUES (%s, %s, %s)
+        """,
+        (user_id, full_name, phone_number),
+    )
+
+    conn.commit()
+    cursor.close()
+    conn.close()
+    print("✅ Заявка на кредит сохранена в базе данных")
 
 
 #######################
