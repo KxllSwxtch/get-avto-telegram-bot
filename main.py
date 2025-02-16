@@ -156,11 +156,9 @@ def stats_command(message):
             bot.send_message(user_id, "❌ Нет данных о пользователях.")
             return
 
-        # Заголовок
         stats_text = "📊 <b>Статистика пользователей</b>\n\n"
-
-        messages = []  # Список сообщений для отправки
-        current_message = stats_text  # Текущее сообщение
+        messages = []  # Список сообщений
+        current_message = stats_text  # Начинаем с заголовка
 
         for user in users:
             user_id, username, first_name, phone_number, created_at = user
@@ -174,24 +172,26 @@ def stats_command(message):
                 "---------------------------------\n"
             )
 
-            # Проверяем, не превышает ли сообщение 4096 символов
+            # Проверяем, не превышает ли сообщение 4000 символов
             if len(current_message) + len(user_info) > 4000:
-                messages.append(current_message)  # Добавляем в список
+                messages.append(current_message)
                 current_message = stats_text  # Начинаем новое сообщение
 
-            current_message += user_info  # Добавляем пользователя
+            current_message += user_info
 
-        # Добавляем последнее сообщение
         if current_message:
-            messages.append(current_message)
+            messages.append(current_message)  # Добавляем последнее сообщение
 
         # Отправляем все сообщения по очереди
         for msg in messages:
             bot.send_message(user_id, msg, parse_mode="HTML")
 
+        print(f"✅ Статистика отправлена {user_id}")
+
     except Exception as e:
-        bot.send_message(user_id, "❌ Ошибка получения статистики.")
-        print(f"Ошибка статистики: {e}")
+        error_text = f"❌ Ошибка статистики: {e}"
+        bot.send_message(user_id, error_text)
+        print(error_text)
 
 
 def is_subscribed(user_id):
