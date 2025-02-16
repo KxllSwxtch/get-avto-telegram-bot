@@ -1,3 +1,4 @@
+import time
 import telebot
 import psycopg2
 import os
@@ -183,6 +184,59 @@ def print_message(message):
     print(f"{message}")
     print("##############\n\n")
     return None
+
+
+@bot.message_handler(commands=["setbroadcast"])
+def set_broadcast(message):
+    """Команда для запуска рассылки вручную"""
+    if message.chat.id not in admins:
+        bot.send_message(message.chat.id, "🚫 У вас нет прав для запуска рассылки.")
+        return
+
+    bot.send_message(message.chat.id, "✍️ Введите текст рассылки:")
+    bot.register_next_step_handler(message, process_broadcast)
+
+
+def process_broadcast(message):
+    """Обрабатывает введённый текст и запускает рассылку"""
+    text = message.text
+    bot.send_message(message.chat.id, f"📢 Начинаю рассылку...\n\n{text}")
+
+    # Запускаем рассылку
+    send_broadcast(text)
+
+
+def send_broadcast(text):
+    """Функция отправки рассылки всем пользователям из базы"""
+    try:
+        conn = psycopg2.connect(DATABASE_URL, sslmode="require")
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT user_id FROM users WHERE username IS NOT NULL AND phone_number IS NOT NULL"
+        )
+        users = cursor.fetchall()
+
+        count = 0  # Счётчик успешных сообщений
+
+        for user in users:
+            user_id = user[0]
+            try:
+                bot.send_message(user_id, text, parse_mode="HTML")
+                count += 1
+                time.sleep(0.5)  # Задержка, чтобы не блокировали
+            except Exception as e:
+                print(f"Ошибка отправки пользователю {user_id}: {e}")
+
+        bot.send_message(
+            message.chat.id, f"✅ Рассылка завершена! Отправлено {count} сообщений."
+        )
+
+    except Exception as e:
+        bot.send_message(message.chat.id, "❌ Ошибка при отправке рассылки.")
+        print(f"Ошибка рассылки: {e}")
+    finally:
+        cursor.close()
+        conn.close()
 
 
 # Функция для установки команд меню
