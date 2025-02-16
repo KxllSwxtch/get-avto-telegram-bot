@@ -55,7 +55,7 @@ user_manual_input = {}
 car_id_external = ""
 total_car_price = 0
 users = set()
-admins = [728438182, 7311646338]  # админы
+admins = [728438182, 7311646338, 490148761]  # админы
 car_month = None
 car_year = None
 
