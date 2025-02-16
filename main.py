@@ -133,38 +133,64 @@ def send_welcome(message):
 
 
 @bot.message_handler(commands=["stats"])
-def show_statistics(message):
-    """Команда /статистика доступна только администраторам"""
-    user_id = message.chat.id  # Получаем user_id того, кто запустил команду
+def stats_command(message):
+    user_id = message.chat.id
 
     if user_id not in admins:
-        bot.send_message(user_id, "❌ У вас нет доступа к этой команде.")
+        bot.send_message(user_id, "🚫 У вас нет прав для выполнения этой команды.")
         return
 
     try:
         conn = psycopg2.connect(DATABASE_URL, sslmode="require")
         cursor = conn.cursor()
 
-        cursor.execute("SELECT user_id, username, first_name, created_at FROM users;")
+        cursor.execute(
+            "SELECT user_id, username, first_name, phone_number, created_at FROM users"
+        )
         users = cursor.fetchall()
 
         cursor.close()
         conn.close()
 
         if not users:
-            bot.send_message(user_id, "📊 В базе пока нет пользователей.")
+            bot.send_message(user_id, "❌ Нет данных о пользователях.")
             return
 
-        stats_message = "📊 <b>Статистика пользователей:</b>\n\n"
-        for user in users:
-            user_id_db, username, first_name, created_at = user
-            stats_message += f"👤 <b>{first_name}</b> (@{username}) — {created_at.strftime('%Y-%m-%d')}\n"
+        # Заголовок
+        stats_text = "📊 <b>Статистика пользователей</b>\n\n"
 
-        bot.send_message(
-            user_id, stats_message, parse_mode="HTML"
-        )  # Отправляем ответ тому, кто вызвал команду
+        messages = []  # Список сообщений для отправки
+        current_message = stats_text  # Текущее сообщение
+
+        for user in users:
+            user_id, username, first_name, phone_number, created_at = user
+
+            user_info = (
+                f"👤 <b>ID:</b> {user_id}\n"
+                f"📛 <b>Имя:</b> {first_name or 'Не указано'}\n"
+                f"💬 <b>Username:</b> @{username if username else '❌ Нет'}\n"
+                f"📞 <b>Телефон:</b> {phone_number or '❌ Нет'}\n"
+                f"📅 <b>Дата регистрации:</b> {created_at}\n"
+                "---------------------------------\n"
+            )
+
+            # Проверяем, не превышает ли сообщение 4096 символов
+            if len(current_message) + len(user_info) > 4000:
+                messages.append(current_message)  # Добавляем в список
+                current_message = stats_text  # Начинаем новое сообщение
+
+            current_message += user_info  # Добавляем пользователя
+
+        # Добавляем последнее сообщение
+        if current_message:
+            messages.append(current_message)
+
+        # Отправляем все сообщения по очереди
+        for msg in messages:
+            bot.send_message(user_id, msg, parse_mode="HTML")
+
     except Exception as e:
-        bot.send_message(user_id, "❌ Ошибка при получении статистики.")
+        bot.send_message(user_id, "❌ Ошибка получения статистики.")
         print(f"Ошибка статистики: {e}")
 
 
