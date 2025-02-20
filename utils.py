@@ -5,6 +5,9 @@ import math
 import gc
 import re
 
+PROXY = "http://B01vby:GBno0x@45.118.250.2:8000"
+proxies = {"http": PROXY, "https": PROXY}
+
 
 def generate_encar_photo_url(photo_path):
     """

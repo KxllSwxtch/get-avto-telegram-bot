@@ -559,6 +559,7 @@ def calculate_cost(link, message):
         )
 
         # Конвертируем стоимость авто в рубли
+        print(car_price)
         price_krw = int(car_price) * 10000
 
         response = get_customs_fees(
@@ -601,6 +602,8 @@ def calculate_cost(link, message):
         car_data["advance_rub"] = 1000000 * krw_rub_rate
         car_data["advance_usd"] = (1000000 * krw_rub_rate) / usd_rate
         car_data["advance_krw"] = 1000000
+
+        print(price_krw)
 
         car_data["car_price_krw"] = price_krw - 1000000
         car_data["car_price_usd"] = (price_krw - 1000000) * krw_rub_rate / usd_rate
