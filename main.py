@@ -282,10 +282,6 @@ def get_currency_rates():
         data["Valute"]["EUR"]["Value"] * DEALER_COMMISSION
     )
 
-    # usd = data["Valute"]["USD"]["Value"] + (
-    #     data["Valute"]["USD"]["Value"] * DEALER_COMMISSION
-    # )
-
     usd = get_usdrub_rate()
     usd_rate = usd
 
@@ -587,7 +583,6 @@ def calculate_cost(link, message):
             + customs_fee
             + recycling_fee
             + (346 * usd_rate)
-            + 50000
             + 30000
             + 8000
         )
