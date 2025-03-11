@@ -1,3 +1,4 @@
+import threading
 import time
 import telebot
 import psycopg2
@@ -1416,9 +1417,25 @@ def calculate_manual_cost(user_id):
     bot.send_message(user_id, result_message, parse_mode="HTML", reply_markup=keyboard)
 
 
+def update_currency_rates():
+    """Фоновый процесс для обновления курсов валют каждые 5 минут."""
+    while True:
+        try:
+            get_currency_rates()
+            print("✅ Курс валют обновлён")
+        except Exception as e:
+            print(f"❌ Ошибка обновления курса валют: {e}")
+        time.sleep(300)  # Ждем 5 минут (300 секунд)
+
+
 # Run the bot
 if __name__ == "__main__":
     rub_to_krw_rate = get_rub_to_krw_rate()
     get_currency_rates()
+
+    # Обновление курса валют каждые 5 минут
+    currency_thread = threading.Thread(target=update_currency_rates, daemon=True)
+    currency_thread.start()
+
     set_bot_commands()
     bot.polling(non_stop=True)
