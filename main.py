@@ -812,7 +812,7 @@ def handle_callback_query(call):
             f"Фрахт (Паром до Владивостока):\n<b>₩{format_number(car_data['freight_korea_krw'])}</b> | <b>{format_number(car_data['freight_korea_rub'])} ₽</b>\n\n"
             f"<b>Итого расходов по Корее</b>:\n<b>₩{format_number(car_data['korea_total_krw'])}</b> | <b>{format_number(car_data['korea_total_rub'])} ₽</b>\n\n\n"
             f"<i>РАСХОДЫ РОССИЯ</i>:\n\n\n"
-            f"Единая таможенная ставка:\n<b><b>₩{format_number(car_data['customs_duty_krw'])}</b> | <b>{format_number(car_data['customs_duty_rub'])} ₽</b>\n\n"
+            f"Единая таможенная ставка:\n<b>₩{format_number(car_data['customs_duty_krw'])}</b> | <b>{format_number(car_data['customs_duty_rub'])} ₽</b>\n\n"
             f"Таможенное оформление:\n<b>₩{format_number(car_data['customs_fee_krw'])}</b> | <b>{format_number(car_data['customs_fee_rub'])} ₽</b>\n\n"
             f"Утилизационный сбор:\n<b>₩{format_number(car_data['util_fee_krw'])}</b> | <b>{format_number(car_data['util_fee_rub'])} ₽</b>\n\n\n"
             f"Агентские услуги по договору:\n<b>₩{format_number(car_data['agent_korea_krw'])}</b> | <b>50,000 ₽</b>\n\n"
