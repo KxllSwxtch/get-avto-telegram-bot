@@ -659,9 +659,9 @@ def calculate_cost(link, message):
         car_data["util_fee_krw"] = recycling_fee / krw_rub_rate
         car_data["util_fee_rub"] = recycling_fee
 
-        car_data["broker_russia_usd"] = 451
-        car_data["broker_russia_krw"] = 451 * usd_rate / krw_rub_rate
-        car_data["broker_russia_rub"] = 451 * usd_rate
+        car_data["broker_russia_usd"] = (((customs_duty + customs_fee + recycling_fee) / 100) * 1.5 + 30000) / usd_rate
+        car_data["broker_russia_krw"] = (((customs_duty + customs_fee + recycling_fee) / 100) * 1.5 + 30000) * rub_to_krw_rate
+        car_data["broker_russia_rub"] = (((customs_duty + customs_fee + recycling_fee) / 100) * 1.5 + 30000)
 
         car_data["svh_russia_usd"] = 50000 / usd_rate
         car_data["svh_russia_krw"] = 50000 / krw_rub_rate
