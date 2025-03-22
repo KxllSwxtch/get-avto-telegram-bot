@@ -482,7 +482,7 @@ def calculate_cost(link, message):
     print_message("ЗАПРОС НА РАСЧЁТ АВТОМОБИЛЯ")
     
     # Подтягиваем актуальный курс валют
-    update_currency_rates()
+    get_currency_rates()
 
     # Отправляем сообщение и сохраняем его ID
     processing_message = bot.send_message(
