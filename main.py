@@ -480,6 +480,9 @@ def calculate_cost(link, message):
     global car_data, car_id_external, car_month, car_year, krw_rub_rate, eur_rub_rate, rub_to_krw_rate
 
     print_message("ЗАПРОС НА РАСЧЁТ АВТОМОБИЛЯ")
+    
+    # Подтягиваем актуальный курс валют
+    update_currency_rates()
 
     # Отправляем сообщение и сохраняем его ID
     processing_message = bot.send_message(
