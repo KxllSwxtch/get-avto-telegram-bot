@@ -57,7 +57,7 @@ user_manual_input = {}
 car_id_external = ""
 total_car_price = 0
 users = set()
-admins = [728438182, 7311646338, 490148761]  # админы
+admins = [728438182, 7311646338, 490148761, 463460708]  # админы
 car_month = None
 car_year = None
 
@@ -480,7 +480,7 @@ def calculate_cost(link, message):
     global car_data, car_id_external, car_month, car_year, krw_rub_rate, eur_rub_rate, rub_to_krw_rate
 
     print_message("ЗАПРОС НА РАСЧЁТ АВТОМОБИЛЯ")
-    
+
     # Подтягиваем актуальный курс валют
     get_currency_rates()
 
@@ -659,9 +659,15 @@ def calculate_cost(link, message):
         car_data["util_fee_krw"] = recycling_fee / krw_rub_rate
         car_data["util_fee_rub"] = recycling_fee
 
-        car_data["broker_russia_usd"] = (((customs_duty + customs_fee + recycling_fee) / 100) * 1.5 + 30000) / usd_rate
-        car_data["broker_russia_krw"] = (((customs_duty + customs_fee + recycling_fee) / 100) * 1.5 + 30000) * rub_to_krw_rate
-        car_data["broker_russia_rub"] = (((customs_duty + customs_fee + recycling_fee) / 100) * 1.5 + 30000)
+        car_data["broker_russia_usd"] = (
+            ((customs_duty + customs_fee + recycling_fee) / 100) * 1.5 + 30000
+        ) / usd_rate
+        car_data["broker_russia_krw"] = (
+            ((customs_duty + customs_fee + recycling_fee) / 100) * 1.5 + 30000
+        ) * rub_to_krw_rate
+        car_data["broker_russia_rub"] = (
+            (customs_duty + customs_fee + recycling_fee) / 100
+        ) * 1.5 + 30000
 
         car_data["svh_russia_usd"] = 50000 / usd_rate
         car_data["svh_russia_krw"] = 50000 / krw_rub_rate
@@ -1366,9 +1372,15 @@ def calculate_manual_cost(user_id):
     car_data["util_fee_krw"] = recycling_fee / krw_rub_rate
     car_data["util_fee_rub"] = recycling_fee
 
-    car_data["broker_russia_usd"] = (((customs_duty + customs_fee + recycling_fee) / 100) * 1.5 + 30000) / usd_rate
-    car_data["broker_russia_krw"] = (((customs_duty + customs_fee + recycling_fee) / 100) * 1.5 + 30000) * rub_to_krw_rate
-    car_data["broker_russia_rub"] = (((customs_duty + customs_fee + recycling_fee) / 100) * 1.5 + 30000)
+    car_data["broker_russia_usd"] = (
+        ((customs_duty + customs_fee + recycling_fee) / 100) * 1.5 + 30000
+    ) / usd_rate
+    car_data["broker_russia_krw"] = (
+        ((customs_duty + customs_fee + recycling_fee) / 100) * 1.5 + 30000
+    ) * rub_to_krw_rate
+    car_data["broker_russia_rub"] = (
+        (customs_duty + customs_fee + recycling_fee) / 100
+    ) * 1.5 + 30000
 
     car_data["svh_russia_usd"] = 50000 / usd_rate
     car_data["svh_russia_krw"] = 50000 / krw_rub_rate
