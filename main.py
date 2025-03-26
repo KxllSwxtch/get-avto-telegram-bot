@@ -41,6 +41,11 @@ USER_AGENTS = [
     "Mozilla/5.0 (iPhone; CPU iPhone OS 16_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.2 Mobile/15E148 Safari/604.1",
 ]
 
+PROXIES = {
+    "http": "http://B01vby:GBno0x@45.118.250.2:8000",
+    "https": "http://B01vby:GBno0x@45.118.250.2:8000",
+}
+
 
 # Configure logging
 logging.basicConfig(
@@ -291,7 +296,7 @@ def get_currency_rates():
         "Accept": "application/json",
     }
 
-    response = requests.get(url, headers=headers)
+    response = requests.get(url, headers=headers, proxies=PROXIES)
     data = response.json()
 
     eur = data["Valute"]["EUR"]["Value"] + (
