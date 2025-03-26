@@ -32,6 +32,14 @@ MANUAL_CAR_TEXT = "Расчёт стоимости вручную"
 DEALER_COMMISSION = 0.00  # 2%
 DATABASE_URL = os.getenv("DATABASE_URL")
 
+# Список User-Agent'ов (можно дополнять)
+USER_AGENTS = [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0",
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 16_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.2 Mobile/15E148 Safari/604.1",
+]
+
 
 # Configure logging
 logging.basicConfig(
@@ -275,7 +283,14 @@ def get_currency_rates():
     print_message("ПОЛУЧАЕМ КУРС ЦБ")
 
     url = "https://www.cbr-xml-daily.ru/daily_json.js"
-    response = requests.get(url)
+
+    # Генерируем headers с рандомным User-Agent
+    headers = {
+        "User-Agent": random.choice(USER_AGENTS),
+        "Accept": "application/json",
+    }
+
+    response = requests.get(url, headers=headers)
     data = response.json()
 
     eur = data["Valute"]["EUR"]["Value"] + (
