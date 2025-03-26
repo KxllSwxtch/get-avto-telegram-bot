@@ -288,7 +288,7 @@ def get_currency_rates():
 
     print_message("ПОЛУЧАЕМ КУРС ЦБ")
 
-    url = "https://corsproxy.io/?url=https://www.cbr-xml-daily.ru/daily_json.js"
+    url = "https://www.cbr-xml-daily.ru/daily_json.js"
 
     # Генерируем headers с рандомным User-Agent
     headers = {
