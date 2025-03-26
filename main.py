@@ -293,7 +293,10 @@ def get_currency_rates():
     # Генерируем headers с рандомным User-Agent
     headers = {
         "User-Agent": random.choice(USER_AGENTS),
-        "Accept": "application/json",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+        "Accept-Encoding": "gzip, deflate, br, zstd",
+        "Accept-Language": "en,ru;q=0.9,en-CA;q=0.8,la;q=0.7,fr;q=0.6,ko;q=0.5",
+        "Referer": "https://corsproxy.io/?url=https://www.cbr-xml-daily.ru/daily_json.js",
     }
 
     response = requests.get(url, headers=headers)
