@@ -290,17 +290,24 @@ def get_currency_rates():
 
     url = "https://www.cbr-xml-daily.ru/daily_json.js"
 
-    # Генерируем headers с рандомным User-Agent
     headers = {
         "User-Agent": random.choice(USER_AGENTS),
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
-        "Accept-Encoding": "gzip, deflate, br, zstd",
-        "Accept-Language": "en,ru;q=0.9,en-CA;q=0.8,la;q=0.7,fr;q=0.6,ko;q=0.5",
-        "Referer": "https://corsproxy.io/?url=https://www.cbr-xml-daily.ru/daily_json.js",
+        "Accept": "application/json",
     }
 
     response = requests.get(url, headers=headers)
-    data = response.json()
+
+    if response.status_code != 200:
+        print(f"❌ Ошибка загрузки курсов. Статус: {response.status_code}")
+        print(f"Ответ: {response.text}")
+        return "❌ Ошибка загрузки курсов."
+
+    try:
+        data = response.json()
+    except Exception as e:
+        print(f"❌ Ошибка JSON: {e}")
+        print(f"Ответ: {response.text}")
+        return "❌ Неверный формат данных."
 
     eur = data["Valute"]["EUR"]["Value"] + (
         data["Valute"]["EUR"]["Value"] * DEALER_COMMISSION
@@ -314,11 +321,7 @@ def get_currency_rates():
 
     eur_rub_rate = eur
 
-    rates_text = (
-        f"EUR: <b>{eur:.2f} ₽</b>\n"
-        # f"USD: <b>{usd:.2f} ₽</b>\n"
-        f"KRW: <b>{krw:.5f} ₽</b>\n"
-    )
+    rates_text = f"EUR: <b>{eur:.2f} ₽</b>\n" f"KRW: <b>{krw:.5f} ₽</b>\n"
 
     return rates_text
 
@@ -1451,25 +1454,9 @@ def calculate_manual_cost(user_id):
     bot.send_message(user_id, result_message, parse_mode="HTML", reply_markup=keyboard)
 
 
-def update_currency_rates():
-    """Фоновый процесс для обновления курсов валют каждые 5 минут."""
-    while True:
-        try:
-            get_currency_rates()
-            print("✅ Курс валют обновлён")
-        except Exception as e:
-            print(f"❌ Ошибка обновления курса валют: {e}")
-        time.sleep(300)  # Ждем 5 минут (300 секунд)
-
-
 # Run the bot
 if __name__ == "__main__":
     rub_to_krw_rate = get_rub_to_krw_rate()
     get_currency_rates()
-
-    # Обновление курса валют каждые 5 минут
-    currency_thread = threading.Thread(target=update_currency_rates, daemon=True)
-    currency_thread.start()
-
     set_bot_commands()
     bot.polling(non_stop=True)
