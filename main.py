@@ -245,16 +245,17 @@ def send_broadcast(text):
         conn = psycopg2.connect(DATABASE_URL, sslmode="require")
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT user_id FROM users WHERE username IS NOT NULL AND phone_number IS NOT NULL"
+            "SELECT user_id, username FROM users WHERE username IS NOT NULL AND phone_number IS NOT NULL"
         )
         users = cursor.fetchall()
 
         count = 0  # Счётчик успешных сообщений
 
         for user in users:
-            user_id = user[0]
+            user_id, username = user
+            personalized_text = f"{username}, на связи GetAuto!\n\n{text}"
             try:
-                bot.send_message(user_id, text, parse_mode="HTML")
+                bot.send_message(user_id, personalized_text, parse_mode="HTML")
                 count += 1
                 time.sleep(0.5)  # Задержка, чтобы не блокировали
             except Exception as e:
@@ -263,7 +264,6 @@ def send_broadcast(text):
         bot.send_message(
             message.chat.id, f"✅ Рассылка завершена! Отправлено {count} сообщений."
         )
-
     except Exception as e:
         bot.send_message(message.chat.id, "❌ Ошибка при отправке рассылки.")
         print(f"Ошибка рассылки: {e}")
