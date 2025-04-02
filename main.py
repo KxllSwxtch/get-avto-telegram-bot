@@ -131,11 +131,7 @@ def send_welcome(message):
 
     # Пропускаем пользователей без username
     if username is None:
-        bot.send_message(
-            message.chat.id,
-            "❌ У вас скрытый профиль. Пожалуйста, укажите username в настройках Telegram!",
-        )
-        return
+        username = ""
 
     save_user_to_db(user_id, username, first_name, "")
 
