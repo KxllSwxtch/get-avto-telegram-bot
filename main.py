@@ -202,10 +202,18 @@ def is_subscribed(user_id):
     channel_username = "@Getauto_kor"
     try:
         chat_member = bot.get_chat_member(channel_username, user_id)
-        return chat_member.status in ["member", "administrator", "creator"]
+        status = chat_member.status
+        print(f"Статус подписки для пользователя {user_id}: {status}")
+
+        # Проверяем все возможные статусы участника канала
+        is_member = status in ["member", "administrator", "creator", "owner"]
+        print(f"Результат проверки подписки: {is_member}")
+        return is_member
+
     except Exception as e:
-        print(f"Ошибка при проверке подписки: {e}")
-        return False  # Если ошибка, предполагаем, что не подписан
+        print(f"Ошибка при проверке подписки для пользователя {user_id}: {e}")
+        # В случае ошибки возвращаем False, чтобы пользователь мог попробовать еще раз
+        return False
 
 
 def print_message(message):
@@ -983,28 +991,40 @@ def handle_callback_query(call):
 
     elif call.data == "check_subscription":
         user_id = call.message.chat.id
-        if is_subscribed(user_id):
+        print(f"Проверка подписки для пользователя {user_id}")
+
+        try:
+            if is_subscribed(user_id):
+                bot.send_message(
+                    user_id,
+                    "✅ Вы успешно подписаны! Теперь можете пользоваться ботом.",
+                    reply_markup=main_menu(),
+                )
+                print(f"Пользователь {user_id} успешно подписан")
+            else:
+                keyboard = types.InlineKeyboardMarkup()
+                keyboard.add(
+                    types.InlineKeyboardButton(
+                        "🔗 Подписаться", url="https://t.me/Getauto_kor"
+                    )
+                )
+                keyboard.add(
+                    types.InlineKeyboardButton(
+                        "✅ Проверить подписку", callback_data="check_subscription"
+                    )
+                )
+                bot.send_message(
+                    user_id,
+                    "🚫 Вы еще не подписались на канал! Подпишитесь и попробуйте снова.",
+                    reply_markup=keyboard,
+                )
+                print(f"Пользователь {user_id} не подписан на канал")
+        except Exception as e:
+            print(f"Ошибка при обработке проверки подписки: {e}")
             bot.send_message(
                 user_id,
-                "✅ Вы успешно подписаны! Теперь можете пользоваться ботом.",
+                "Произошла ошибка при проверке подписки. Пожалуйста, попробуйте позже.",
                 reply_markup=main_menu(),
-            )
-        else:
-            keyboard = types.InlineKeyboardMarkup()
-            keyboard.add(
-                types.InlineKeyboardButton(
-                    "🔗 Подписаться", url="https://t.me/Getauto_kor"
-                )
-            )
-            keyboard.add(
-                types.InlineKeyboardButton(
-                    "✅ Проверить подписку", callback_data="check_subscription"
-                )
-            )
-            bot.send_message(
-                user_id,
-                "🚫 Вы еще не подписались на канал! Подпишитесь и попробуйте снова.",
-                reply_markup=keyboard,
             )
 
 
@@ -1131,26 +1151,6 @@ def process_credit_phone(message, full_name):
 
     bot.send_message(
         user_id, "✅ Ваша заявка на кредит успешно отправлена! Мы с вами свяжемся."
-    )
-
-
-def process_credit_phone(message, full_name):
-    user_id = message.chat.id
-    phone_number = message.text.strip()
-
-    # Проверка номера телефона
-    if not re.match(r"^\+?\d{10,15}$", phone_number):
-        bot.send_message(user_id, "❌ Введите корректный номер телефона:")
-        bot.register_next_step_handler(message, process_credit_phone, full_name)
-        return
-
-    # Сохраняем заявку в базу данных
-    save_credit_application(user_id, full_name, phone_number)
-
-    bot.send_message(
-        user_id,
-        "✅ Ваша заявка на кредит успешно отправлена! Мы с вами свяжемся.",
-        reply_markup=main_menu(),
     )
 
 
