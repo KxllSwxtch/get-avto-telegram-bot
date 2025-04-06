@@ -674,7 +674,6 @@ def calculate_cost(link, message):
             + (100000 * krw_rub_rate)
             + (350000 * krw_rub_rate)
             + (600 * usd_rate)
-            + 50000
         )
 
         # Расходы Россия
