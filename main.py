@@ -722,17 +722,36 @@ def calculate_cost(link, message):
             f"Стоимость автомобиля в Корее: ₩{format_number(price_krw)}\n"
             f"Объём двигателя: {engine_volume_formatted}\n"
             f"КПП: {formatted_transmission}\n\n"
-            f"Стоимость автомобиля под ключ до Владивостока: \n<b>₩{format_number(total_cost_krw)} </b> | <b>{format_number(total_cost)} ₽</b>\n\n"
+            f"🇰🇷 <i>Расходы по Корее</i>\n\n"
+            f"<i>ПЕРВАЯ ЧАСТЬ ОПЛАТЫ</i>:\n\n"
+            f"▪️ Задаток (бронь авто):\n<b>₩1,000,000</b> | <b>{format_number(car_data['advance_rub'])} ₽</b>\n\n\n"
+            f"<i>ВТОРАЯ ЧАСТЬ ОПЛАТЫ</i>:\n\n"
+            f"▪️ Стоимость автомобиля (за вычетом задатка):\n<b>₩{format_number(car_data['car_price_krw'])}</b> | <b>{format_number(car_data['car_price_rub'])} ₽</b>\n\n"
+            f"▪️ Диллерский сбор:\n<b>₩{format_number(car_data['dealer_korea_krw'])}</b> | <b>{format_number(car_data['dealer_korea_rub'])} ₽</b>\n\n"
+            f"▪️ Доставка, снятие с учёта, оформление:\n<b>₩{format_number(car_data['delivery_korea_krw'])}</b> | <b>{format_number(car_data['delivery_korea_rub'])} ₽</b>\n\n"
+            f"▪️ Транспортировка авто в порт:\n<b>₩{format_number(car_data['transfer_korea_krw'])}</b> | <b>{format_number(car_data['transfer_korea_rub'])} ₽</b>\n\n"
+            f"▪️ Фрахт (Паром до Владивостока):\n<b>₩{format_number(car_data['freight_korea_krw'])}</b> | <b>{format_number(car_data['freight_korea_rub'])} ₽</b>\n\n"
+            f"🟰 <b>Итого расходов по Корее</b>:\n<b>₩{format_number(car_data['korea_total_krw'])}</b> | <b>{format_number(car_data['korea_total_rub'])} ₽</b>\n\n\n"
+            f"🇷🇺 <i>РАСХОДЫ РОССИЯ</i>:\n\n"
+            f"▪️ <b>Единая таможенная ставка</b>:\n<b>₩{format_number(car_data['customs_duty_krw'])}</b> | <b>{format_number(car_data['customs_duty_rub'])} ₽</b>\n\n"
+            f"▪️ <b>Таможенное оформление</b>:\n<b>₩{format_number(car_data['customs_fee_krw'])}</b> | <b>{format_number(car_data['customs_fee_rub'])} ₽</b>\n\n"
+            f"▪️ <b>Утилизационный сбор</b>:\n<b>₩{format_number(car_data['util_fee_krw'])}</b> | <b>{format_number(car_data['util_fee_rub'])} ₽</b>\n\n\n"
+            f"▪️ Агентские услуги по договору:\n<b>₩{format_number(car_data['agent_korea_krw'])}</b> | <b>50,000 ₽</b>\n\n"
+            f"▪️ Брокер-Владивосток:\n<b>₩{format_number(car_data['broker_russia_krw'])}</b> | <b>{format_number(car_data['broker_russia_rub'])} ₽</b>\n\n"
+            f"▪️ СВХ-Владивосток:\n<b>₩{format_number(car_data['svh_russia_krw'])}</b> | <b>{format_number(car_data['svh_russia_rub'])} ₽</b>\n\n"
+            f"▪️ Лаборатория, СБКТС, ЭПТС:\n<b>₩{format_number(car_data['lab_russia_krw'])}</b> | <b>{format_number(car_data['lab_russia_rub'])} ₽</b>\n\n"
+            f"▪️ Временная регистрация-Владивосток:\n<b>₩{format_number(car_data['perm_registration_russia_krw'])}</b> | <b>{format_number(car_data['perm_registration_russia_rub'])} ₽</b>\n\n"
+            f"‼️ <b>Доставку до вашего города уточняйте у менеджера @GetAuto_manager_bot</b>\n"
+            "Стоимость под ключ актуальна на сегодняшний день, возможны колебания курса на 3-5% от стоимости авто, на момент покупки автомобиля\n\n"
             f"🔗 <a href='{preview_link}'>Ссылка на автомобиль</a>\n\n"
-            "‼️Стоимость ознакомительная и может отличаться по факту оплаты автомобиля на 2-5% в меньшую или большую стороны, все вопросы можете уточнить у менеджера @GetAuto_manager_bot\n\n"
             "🔗 <a href='https://t.me/Getauto_kor'>Официальный телеграм канал</a>\n"
         )
 
         # Клавиатура с дальнейшими действиями
         keyboard = types.InlineKeyboardMarkup()
-        keyboard.add(
-            types.InlineKeyboardButton("Детали расчёта", callback_data="detail")
-        )
+        # keyboard.add(
+        #     types.InlineKeyboardButton("Детали расчёта", callback_data="detail")
+        # )
         keyboard.add(
             types.InlineKeyboardButton(
                 "Выплаты по ДТП",
