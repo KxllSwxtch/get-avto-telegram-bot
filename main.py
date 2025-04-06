@@ -607,8 +607,7 @@ def calculate_cost(link, message):
 
         # Расчет итоговой стоимости автомобиля в рублях
         total_cost = (
-            50000
-            + (price_krw * krw_rub_rate)
+            +(price_krw * krw_rub_rate)
             + (440000 * krw_rub_rate)
             + (100000 * krw_rub_rate)
             + (350000 * krw_rub_rate)
