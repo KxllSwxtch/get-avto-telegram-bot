@@ -257,7 +257,8 @@ def send_broadcast(text):
 
         for user in users:
             user_id, username = user
-            personalized_text = f"{username}, на связи GetAuto!\n\n{text}"
+            # {username}, на связи GetAuto!\n\n
+            personalized_text = f"{text}"
             try:
                 bot.send_message(user_id, personalized_text, parse_mode="HTML")
                 count += 1
