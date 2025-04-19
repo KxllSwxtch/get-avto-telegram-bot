@@ -608,7 +608,7 @@ def calculate_cost(link, message):
 
         # Расчет итоговой стоимости автомобиля в рублях
         total_cost = (
-            +(price_krw * krw_rub_rate)
+            (price_krw * krw_rub_rate)
             + (440000 * krw_rub_rate)
             + (100000 * krw_rub_rate)
             + (350000 * krw_rub_rate)
@@ -616,8 +616,9 @@ def calculate_cost(link, message):
             + customs_duty
             + customs_fee
             + recycling_fee
-            + (451 * usd_rate)
-            + 30000
+            + 50000  # агент
+            + 37788  # брокер
+            + 30000  # лаб
             + 8000
         )
 
@@ -653,7 +654,7 @@ def calculate_cost(link, message):
         car_data["freight_korea_rub"] = 600 * usd_rate
 
         car_data["korea_total_usd"] = (
-            +((price_krw) * krw_rub_rate / usd_rate)
+            ((price_krw) * krw_rub_rate / usd_rate)
             + (440000 * krw_rub_rate / usd_rate)
             + (100000 * krw_rub_rate / usd_rate)
             + (350000 * krw_rub_rate / usd_rate)
@@ -661,11 +662,7 @@ def calculate_cost(link, message):
         )
 
         car_data["korea_total_krw"] = (
-            +(price_krw)
-            + (440000)
-            + (100000)
-            + 350000
-            + (600 * usd_rate / krw_rub_rate)
+            (price_krw) + (440000) + (100000) + 350000 + (600 * usd_rate / krw_rub_rate)
         )
 
         car_data["korea_total_rub"] = (
@@ -1334,8 +1331,8 @@ def calculate_manual_cost(user_id):
         + (customs_duty)
         + customs_fee
         + recycling_fee
-        + (451 * usd_rate)
-        + 50000
+        + 50000  # агент
+        + 37788  # брокер
         + 30000
         + 8000
     )
