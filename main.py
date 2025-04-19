@@ -616,9 +616,9 @@ def calculate_cost(link, message):
             + customs_duty
             + customs_fee
             + recycling_fee
-            + 50000  # агент
-            + 37788  # брокер
-            + 30000  # лаб
+            + (461 * usd_rate)
+            + 50000
+            + 30000
             + 8000
         )
 
@@ -1331,8 +1331,8 @@ def calculate_manual_cost(user_id):
         + (customs_duty)
         + customs_fee
         + recycling_fee
-        + 50000  # агент
-        + 37788  # брокер
+        + (461 * usd_rate)
+        + 50000
         + 30000
         + 8000
     )
