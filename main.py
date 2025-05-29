@@ -592,6 +592,7 @@ def calculate_cost(link, message):
 
         # Конвертируем стоимость авто в рубли
         price_krw = int(car_price) * 10000
+        price_usd = price_krw * krw_rub_rate / usd_rate
 
         response = get_customs_fees(
             car_engine_displacement,
@@ -715,7 +716,7 @@ def calculate_cost(link, message):
             f"{car_title}\n\n"
             f"Возраст: {age_formatted} (дата регистрации: {month}/{year})\n"
             f"Пробег: {formatted_mileage}\n"
-            f"Стоимость автомобиля в Корее: ₩{format_number(price_krw)}\n"
+            f"Стоимость автомобиля в Корее: ₩{format_number(price_krw)} | ${format_number(price_usd)}\n"
             f"Объём двигателя: {engine_volume_formatted}\n"
             # f"КПП: {formatted_transmission}\n\n"
             f"🟰 <b>Стоимость под ключ до Владивостока</b>:\n<b>${format_number(total_cost_usd)}</b> | <b>₩{format_number(total_cost_krw)}</b> | <b>{format_number(total_cost)} ₽</b>\n\n"
