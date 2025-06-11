@@ -6,7 +6,40 @@ import gc
 import re
 
 PROXY = "http://B01vby:GBno0x@45.118.250.2:8000"
-proxies = {"http": PROXY, "https": PROXY}
+RESIDENTIAL_PROXY = (
+    "http://oGKgjVaIooWADkOR:O8J73QYtjYWgQj4m_country-ru@geo.iproyal.com:12321"
+)
+proxies = {"http": RESIDENTIAL_PROXY, "https": RESIDENTIAL_PROXY}
+
+# Common User Agents for different browsers and devices
+USER_AGENTS = [
+    # Chrome on Windows
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+    # Firefox on Windows
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:89.0) Gecko/20100101 Firefox/89.0",
+    # Safari on macOS
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Safari/605.1.15",
+    # Edge on Windows
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36 Edg/91.0.864.59",
+    # Chrome on Android
+    "Mozilla/5.0 (Linux; Android 10; SM-G973F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.120 Mobile Safari/537.36",
+    # Safari on iOS
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 14_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1",
+    # Opera on Windows
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36 OPR/77.0.4054.277",
+    # Chrome on macOS
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+]
+
+
+def get_random_user_agent():
+    """
+    Returns a random user agent from the USER_AGENTS list.
+    This is useful for avoiding detection as a bot.
+    """
+    import random
+
+    return random.choice(USER_AGENTS)
 
 
 def generate_encar_photo_url(photo_path):
@@ -64,7 +97,7 @@ def get_customs_fees(engine_volume, car_price, car_year, car_month, engine_type=
     }
 
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+        "User-Agent": get_random_user_agent(),
         "Referer": "https://calcus.ru/",
         "Origin": "https://calcus.ru",
         "Content-Type": "application/x-www-form-urlencoded",
