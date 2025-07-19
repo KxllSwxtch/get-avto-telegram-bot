@@ -83,7 +83,7 @@ def get_customs_fees(engine_volume, car_price, car_year, car_month, engine_type=
     :param engine_type: Тип двигателя (1 - бензин, 2 - дизель, 3 - гибрид, 4 - электромобиль)
     :return: JSON с результатами расчёта
     """
-    url = "https://calcus.ru/calculate/Customs"
+    url = "https://corsproxy.io/?url=https://calcus.ru/calculate/Customs"
 
     payload = {
         "owner": 1,  # Физлицо
