@@ -4,12 +4,48 @@ import locale
 import math
 import gc
 import re
+import time
+import threading
 
 PROXY = "http://B01vby:GBno0x@45.118.250.2:8000"
 RESIDENTIAL_PROXY = (
     "http://oGKgjVaIooWADkOR:O8J73QYtjYWgQj4m_country-ru@geo.iproyal.com:12321"
 )
 proxies = {"http": RESIDENTIAL_PROXY, "https": RESIDENTIAL_PROXY}
+
+
+class RateLimiter:
+    """Простой rate limiter для ограничения количества запросов в секунду"""
+    
+    def __init__(self, rate_limit=5):
+        """
+        :param rate_limit: Максимальное количество запросов в секунду
+        """
+        self.rate_limit = rate_limit
+        self.tokens = rate_limit
+        self.last_update = time.time()
+        self.lock = threading.Lock()
+    
+    def acquire(self):
+        """Ожидает, пока можно будет сделать запрос"""
+        with self.lock:
+            while True:
+                now = time.time()
+                time_passed = now - self.last_update
+                self.tokens = min(self.rate_limit, self.tokens + time_passed * self.rate_limit)
+                self.last_update = now
+                
+                if self.tokens >= 1:
+                    self.tokens -= 1
+                    return
+                
+                # Ждем, пока появится токен
+                sleep_time = (1 - self.tokens) / self.rate_limit
+                time.sleep(sleep_time)
+
+
+# Создаем глобальный rate limiter для calcus.ru (5 запросов в секунду)
+calcus_rate_limiter = RateLimiter(rate_limit=5)
 
 # Список User-Agent для запросов к calcus.ru
 USER_AGENTS = [
@@ -71,7 +107,7 @@ def get_customs_fees(engine_volume, car_price, car_year, car_month, engine_type=
     :param engine_type: Тип двигателя (1 - бензин, 2 - дизель, 3 - гибрид, 4 - электромобиль)
     :return: JSON с результатами расчёта
     """
-    url = "https://corsproxy.io/?url=https://calcus.ru/calculate/Customs"
+    url = "https://calcus.ru/calculate/Customs"
 
     payload = {
         "owner": 1,  # Физлицо
@@ -85,20 +121,48 @@ def get_customs_fees(engine_volume, car_price, car_year, car_month, engine_type=
     }
 
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+        "User-Agent": get_random_user_agent(),
         "Referer": "https://calcus.ru/",
         "Origin": "https://calcus.ru",
         "Content-Type": "application/x-www-form-urlencoded",
     }
 
-    try:
-        response = requests.post(url, data=payload, headers=headers)
-        response.raise_for_status()
-        return response.json()
-    except requests.RequestException as e:
-        print(f"Ошибка при запросе к calcus.ru: {e}")
-        # Возвращаем заглушку в случае ошибки
-        return {"sbor": "0", "tax": "0", "util": "0"}
+    # Применяем rate limiting перед запросом
+    calcus_rate_limiter.acquire()
+    
+    # Пытаемся выполнить запрос с повторными попытками при 429 ошибке
+    max_retries = 3
+    retry_delay = 1
+    
+    for attempt in range(max_retries):
+        try:
+            response = requests.post(url, data=payload, headers=headers, timeout=10)
+            
+            # Если получили 429, ждем и повторяем
+            if response.status_code == 429:
+                if attempt < max_retries - 1:
+                    print(f"Получен код 429 от calcus.ru. Ожидание {retry_delay} секунд...")
+                    time.sleep(retry_delay)
+                    retry_delay *= 2  # Экспоненциальная задержка
+                    continue
+                else:
+                    print(f"Превышено количество попыток для calcus.ru")
+                    return {"sbor": "0", "tax": "0", "util": "0"}
+            
+            response.raise_for_status()
+            return response.json()
+            
+        except requests.Timeout:
+            print(f"Таймаут при запросе к calcus.ru (попытка {attempt + 1}/{max_retries})")
+            if attempt < max_retries - 1:
+                time.sleep(retry_delay)
+                continue
+            return {"sbor": "0", "tax": "0", "util": "0"}
+            
+        except requests.RequestException as e:
+            print(f"Ошибка при запросе к calcus.ru: {e}")
+            # Возвращаем заглушку в случае ошибки
+            return {"sbor": "0", "tax": "0", "util": "0"}
 
 
 # Utility function to calculate the age category
