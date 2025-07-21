@@ -16,7 +16,7 @@ proxies = {"http": RESIDENTIAL_PROXY, "https": RESIDENTIAL_PROXY}
 
 class RateLimiter:
     """Простой rate limiter для ограничения количества запросов в секунду"""
-    
+
     def __init__(self, rate_limit=5):
         """
         :param rate_limit: Максимальное количество запросов в секунду
@@ -25,20 +25,22 @@ class RateLimiter:
         self.tokens = rate_limit
         self.last_update = time.time()
         self.lock = threading.Lock()
-    
+
     def acquire(self):
         """Ожидает, пока можно будет сделать запрос"""
         with self.lock:
             while True:
                 now = time.time()
                 time_passed = now - self.last_update
-                self.tokens = min(self.rate_limit, self.tokens + time_passed * self.rate_limit)
+                self.tokens = min(
+                    self.rate_limit, self.tokens + time_passed * self.rate_limit
+                )
                 self.last_update = now
-                
+
                 if self.tokens >= 1:
                     self.tokens -= 1
                     return
-                
+
                 # Ждем, пока появится токен
                 sleep_time = (1 - self.tokens) / self.rate_limit
                 time.sleep(sleep_time)
@@ -129,36 +131,42 @@ def get_customs_fees(engine_volume, car_price, car_year, car_month, engine_type=
 
     # Применяем rate limiting перед запросом
     calcus_rate_limiter.acquire()
-    
+
     # Пытаемся выполнить запрос с повторными попытками при 429 ошибке
     max_retries = 3
     retry_delay = 1
-    
+
     for attempt in range(max_retries):
         try:
-            response = requests.post(url, data=payload, headers=headers, timeout=10)
-            
+            response = requests.post(
+                url, data=payload, headers=headers, timeout=10, proxies=proxies
+            )
+
             # Если получили 429, ждем и повторяем
             if response.status_code == 429:
                 if attempt < max_retries - 1:
-                    print(f"Получен код 429 от calcus.ru. Ожидание {retry_delay} секунд...")
+                    print(
+                        f"Получен код 429 от calcus.ru. Ожидание {retry_delay} секунд..."
+                    )
                     time.sleep(retry_delay)
                     retry_delay *= 2  # Экспоненциальная задержка
                     continue
                 else:
                     print(f"Превышено количество попыток для calcus.ru")
                     return {"sbor": "0", "tax": "0", "util": "0"}
-            
+
             response.raise_for_status()
             return response.json()
-            
+
         except requests.Timeout:
-            print(f"Таймаут при запросе к calcus.ru (попытка {attempt + 1}/{max_retries})")
+            print(
+                f"Таймаут при запросе к calcus.ru (попытка {attempt + 1}/{max_retries})"
+            )
             if attempt < max_retries - 1:
                 time.sleep(retry_delay)
                 continue
             return {"sbor": "0", "tax": "0", "util": "0"}
-            
+
         except requests.RequestException as e:
             print(f"Ошибка при запросе к calcus.ru: {e}")
             # Возвращаем заглушку в случае ошибки
