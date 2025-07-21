@@ -11,7 +11,7 @@ PROXY = "http://B01vby:GBno0x@45.118.250.2:8000"
 RESIDENTIAL_PROXY = (
     "http://oGKgjVaIooWADkOR:O8J73QYtjYWgQj4m_country-ru@geo.iproyal.com:12321"
 )
-proxies = {"http": RESIDENTIAL_PROXY, "https": RESIDENTIAL_PROXY}
+proxies = {"http": PROXY, "https": PROXY}
 
 
 class RateLimiter:
