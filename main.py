@@ -326,6 +326,10 @@ def get_currency_rates():
 
     eur_rub_rate = eur
 
+    # Check if rates were successfully fetched
+    if krw is None or eur is None:
+        return "❌ Ошибка получения курсов валют. Попробуйте позже."
+
     rates_text = f"EUR: <b>{eur:.2f} ₽</b>\n" f"KRW: <b>{krw:.5f} ₽</b>\n"
 
     return rates_text

@@ -18,14 +18,19 @@ def get_krwrub_rate():
         # Преобразуем CSV в список
         table = list(reader)
 
-        # Достаём курс из ячейки E8 (в CSV индексация с 0, поэтому E8 = [7][4])
-        raw_value = table[7][4].replace(",", ".").replace("₽", "").strip()
-
+        # Достаём курс из ячейки E7 (в CSV индексация с 0, поэтому E7 = [6][4])
+        # Это содержит курс KRW/RUB
         try:
+            raw_value = table[6][4].replace(",", ".").replace("₽", "").strip()
             krw_rub_rate = float(raw_value)
+            print(f"✅ KRW/RUB rate fetched from Google Sheets: {krw_rub_rate}")
             return krw_rub_rate
-        except ValueError:
-            print(f"Ошибка конвертации: {raw_value}")
+        except (IndexError, ValueError) as e:
+            print(f"❌ Ошибка получения курса KRW/RUB: {e}")
+            if len(table) > 6 and len(table[6]) > 4:
+                print(f"   Значение в ячейке: {table[6][4]}")
+            return None
 
     else:
         print("Ошибка при запросе:", response.status_code)
+        return None

@@ -18,14 +18,19 @@ def get_usdrub_rate():
         # Преобразуем CSV в список
         table = list(reader)
 
-        # Достаём курс из ячейки E8 (в CSV индексация с 0, поэтому E8 = [7][4])
-        raw_value = table[7][3].replace(",", ".").replace("₽", "").strip()
-
+        # Достаём курс из ячейки D7 (в CSV индексация с 0, поэтому D7 = [6][3])
+        # Это содержит курс USD/RUB
         try:
+            raw_value = table[6][3].replace(",", ".").replace("₽", "").strip()
             usdrub_rate = float(raw_value)
+            print(f"✅ USD/RUB rate fetched from Google Sheets: {usdrub_rate}")
             return usdrub_rate
-        except ValueError:
-            print(f"Ошибка конвертации: {raw_value}")
+        except (IndexError, ValueError) as e:
+            print(f"❌ Ошибка получения курса USD/RUB: {e}")
+            if len(table) > 6 and len(table[6]) > 3:
+                print(f"   Значение в ячейке: {table[6][3]}")
+            return None
 
     else:
         print("Ошибка при запросе:", response.status_code)
+        return None
