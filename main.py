@@ -151,50 +151,125 @@ def show_statistics(message):
     if user_id not in admins:
         bot.send_message(user_id, "❌ У вас нет доступа к этой команде.")
         return
+    
+    # Отправляем первую страницу статистики
+    send_stats_page(user_id, page=1)
 
+
+def send_stats_page(chat_id, page=1, message_id=None):
+    """Отправляет страницу статистики с пагинацией"""
+    USERS_PER_PAGE = 20
+    
     try:
         conn = psycopg2.connect(DATABASE_URL, sslmode="require")
         cursor = conn.cursor()
-
-        cursor.execute("SELECT user_id, username, first_name, created_at FROM users;")
+        
+        # Получаем общее количество пользователей
+        cursor.execute("SELECT COUNT(*) FROM users;")
+        total_users = cursor.fetchone()[0]
+        
+        if total_users == 0:
+            bot.send_message(chat_id, "📊 В базе пока нет пользователей.")
+            cursor.close()
+            conn.close()
+            return
+        
+        # Вычисляем количество страниц
+        total_pages = (total_users + USERS_PER_PAGE - 1) // USERS_PER_PAGE
+        
+        # Проверяем корректность номера страницы
+        if page < 1:
+            page = 1
+        elif page > total_pages:
+            page = total_pages
+        
+        # Вычисляем offset для запроса
+        offset = (page - 1) * USERS_PER_PAGE
+        
+        # Получаем пользователей для текущей страницы (сортировка по дате, самые новые первыми)
+        cursor.execute(
+            "SELECT user_id, username, first_name, created_at FROM users "
+            "ORDER BY created_at DESC LIMIT %s OFFSET %s;",
+            (USERS_PER_PAGE, offset)
+        )
         users = cursor.fetchall()
-
         cursor.close()
         conn.close()
-
-        if not users:
-            bot.send_message(user_id, "📊 В базе пока нет пользователей.")
-            return
-
-        messages = []
-        stats_message = "📊 <b>Статистика пользователей:</b>\n\n"
-        count = 1
-
-        for user in users:
+        
+        # Формируем сообщение со статистикой
+        stats_message = f"📊 <b>Статистика пользователей</b>\n"
+        stats_message += f"👥 Всего пользователей: <b>{total_users}</b>\n"
+        stats_message += f"📄 Страница <b>{page}/{total_pages}</b>\n\n"
+        
+        # Вычисляем правильную нумерацию (учитывая обратный порядок)
+        start_num = offset + 1
+        
+        for idx, user in enumerate(users):
             user_id_db, username, first_name, created_at = user
             username_text = f"@{username}" if username else "—"
+            # Экранируем HTML-символы в имени пользователя
+            if first_name:
+                first_name = first_name.replace('<', '&lt;').replace('>', '&gt;').replace('&', '&amp;')
+            else:
+                first_name = "Без имени"
+            
             user_info = (
-                f"👤 <b>{count}. {first_name}</b> ({username_text}) — "
+                f"👤 <b>{start_num + idx}.</b> {first_name} ({username_text}) — "
                 f"{created_at.strftime('%Y-%m-%d')}\n"
             )
-
-            # Если сообщение превышает 4000 символов, создаем новое
-            if len(stats_message) + len(user_info) > 4000:
-                messages.append(stats_message)
-                stats_message = ""
-
             stats_message += user_info
-            count += 1
-
-        messages.append(stats_message)  # Добавляем последний блок данных
-
-        # Отправляем статистику в несколько сообщений
-        for msg in messages:
-            bot.send_message(user_id, msg, parse_mode="HTML")
-
+        
+        # Создаем клавиатуру с кнопками навигации
+        markup = types.InlineKeyboardMarkup(row_width=3)
+        buttons = []
+        
+        # Кнопка "Назад"
+        if page > 1:
+            buttons.append(types.InlineKeyboardButton(
+                "⬅️ Назад", 
+                callback_data=f"stats_page_{page-1}"
+            ))
+        
+        # Кнопка с номером страницы (неактивная)
+        buttons.append(types.InlineKeyboardButton(
+            f"{page}/{total_pages}", 
+            callback_data="stats_current"
+        ))
+        
+        # Кнопка "Вперед"
+        if page < total_pages:
+            buttons.append(types.InlineKeyboardButton(
+                "Вперед ➡️", 
+                callback_data=f"stats_page_{page+1}"
+            ))
+        
+        if buttons:
+            markup.add(*buttons)
+        
+        # Отправляем или редактируем сообщение
+        if message_id:
+            bot.edit_message_text(
+                chat_id=chat_id,
+                message_id=message_id,
+                text=stats_message,
+                parse_mode="HTML",
+                reply_markup=markup if len(buttons) > 1 else None
+            )
+        else:
+            bot.send_message(
+                chat_id,
+                stats_message,
+                parse_mode="HTML",
+                reply_markup=markup if len(buttons) > 1 else None
+            )
+            
     except Exception as e:
-        bot.send_message(user_id, "❌ Ошибка при получении статистики.")
-        print(f"Ошибка статистики: {e}")
+        error_msg = f"❌ Ошибка при получении статистики: {str(e)}"
+        if message_id:
+            bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=error_msg)
+        else:
+            bot.send_message(chat_id, error_msg)
+        logging.error(f"Ошибка статистики: {e}")
 
 
 def is_subscribed(user_id):
@@ -856,7 +931,28 @@ def get_insurance_total():
 def handle_callback_query(call):
     global car_data, car_id_external, usd_rate
 
-    if call.data.startswith("detail") or call.data.startswith("detail_manual"):
+    # Обработка пагинации статистики
+    if call.data.startswith("stats_page_"):
+        # Проверяем, что пользователь - администратор
+        if call.from_user.id not in admins:
+            bot.answer_callback_query(call.id, "❌ У вас нет доступа к этой команде.")
+            return
+        
+        try:
+            page = int(call.data.replace("stats_page_", ""))
+            send_stats_page(call.from_user.id, page, call.message.message_id)
+            bot.answer_callback_query(call.id)
+        except Exception as e:
+            bot.answer_callback_query(call.id, "❌ Ошибка при переключении страницы")
+            logging.error(f"Ошибка пагинации статистики: {e}")
+        return
+    
+    elif call.data == "stats_current":
+        # Для кнопки с текущей страницей - просто закрываем уведомление
+        bot.answer_callback_query(call.id)
+        return
+
+    elif call.data.startswith("detail") or call.data.startswith("detail_manual"):
         print_message("[ЗАПРОС] ДЕТАЛИЗАЦИЯ РАСЧËТА")
 
         detail_message = (
