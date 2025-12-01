@@ -3,7 +3,6 @@ import datetime
 import locale
 import math
 import gc
-import re
 import time
 import threading
 
@@ -68,6 +67,32 @@ def get_random_user_agent():
     return random.choice(USER_AGENTS)
 
 
+def get_pan_auto_car_data(car_id):
+    """
+    Fetches car data from pan-auto.ru API including HP and pre-calculated customs.
+
+    :param car_id: Encar car ID (e.g., "41074555")
+    :return: dict with car data or None if not found
+    """
+    url = f"https://zefir.pan-auto.ru/api/cars/{car_id}/"
+
+    headers = {
+        "Accept": "*/*",
+        "Origin": "https://pan-auto.ru",
+        "Referer": "https://pan-auto.ru/",
+        "User-Agent": get_random_user_agent(),
+    }
+
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        if response.status_code == 200:
+            return response.json()
+        return None
+    except requests.RequestException as e:
+        print(f"Error fetching pan-auto.ru data: {e}")
+        return None
+
+
 def generate_encar_photo_url(photo_path):
     """
     Формирует правильный URL для фотографий Encar.
@@ -100,12 +125,14 @@ def clean_number(value):
     return int(float(value.replace(" ", "").replace(",", ".")))
 
 
-def get_customs_fees(engine_volume, car_price, car_year, car_month, engine_type=1):
+def get_customs_fees(engine_volume, car_price, car_year, car_month, power=1, engine_type=1):
     """
     Запрашивает расчёт таможенных платежей с сайта calcus.ru.
     :param engine_volume: Объём двигателя (куб. см)
     :param car_price: Цена авто в вонах
     :param car_year: Год выпуска авто
+    :param car_month: Месяц выпуска авто
+    :param power: Мощность двигателя в л.с. (важно для расчёта утильсбора с 01.12.2024)
     :param engine_type: Тип двигателя (1 - бензин, 2 - дизель, 3 - гибрид, 4 - электромобиль)
     :return: JSON с результатами расчёта
     """
@@ -115,7 +142,7 @@ def get_customs_fees(engine_volume, car_price, car_year, car_month, engine_type=
         "owner": 1,  # Физлицо
         "age": calculate_age(car_year, car_month),  # Возрастная категория
         "engine": engine_type,  # Тип двигателя (по умолчанию 1 - бензин)
-        "power": 1,  # Лошадиные силы (можно оставить 1)
+        "power": int(power),  # Мощность двигателя в л.с.
         "power_unit": 1,  # Тип мощности (1 - л.с.)
         "value": int(engine_volume),  # Объём двигателя
         "price": int(car_price),  # Цена авто в KRW
