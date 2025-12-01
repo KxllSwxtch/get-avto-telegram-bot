@@ -770,8 +770,21 @@ def calculate_cost_with_pan_auto(pan_auto_data, car_id, message):
     manufacturer = pan_auto_data.get("manufacturer", {}).get("translation", "")
     model = pan_auto_data.get("model", {}).get("translation", "")
     engine_volume = pan_auto_data.get("displacement", 0)
-    year = int(pan_auto_data.get("formYear", "0")[:4]) if pan_auto_data.get("formYear") else 0
-    month = pan_auto_data.get("formYear", "01")[-2:] if pan_auto_data.get("formYear") else "01"
+
+    # Extract year and month from formYear (can be "2024" or "202401" format)
+    form_year = pan_auto_data.get("formYear", "")
+    if form_year and len(form_year) >= 6:
+        # Format: YYYYMM (e.g., "202401")
+        year = int(form_year[:4])
+        month = form_year[4:6]
+    elif form_year and len(form_year) >= 4:
+        # Format: YYYY only (e.g., "2024")
+        year = int(form_year[:4])
+        month = "01"  # Default to January
+    else:
+        year = 0
+        month = "01"
+
     price_krw = pan_auto_data.get("price", 0)
     mileage = pan_auto_data.get("mileage", 0)
 
