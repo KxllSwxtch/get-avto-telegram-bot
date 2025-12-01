@@ -50,6 +50,7 @@ PROXIES = {
 
 MANAGERS = [
     7311646338, # Dmitriy
+    490148761, # Alexandra
 ]
 
 
