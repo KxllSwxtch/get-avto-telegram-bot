@@ -785,7 +785,8 @@ def calculate_cost_with_pan_auto(pan_auto_data, car_id, message):
         year = 0
         month = "01"
 
-    price_krw = pan_auto_data.get("price", 0)
+    # Get car price from costs.RUB.carPriceEncar (this is the KRW price)
+    price_krw = costs_rub.get("carPriceEncar", 0)
     mileage = pan_auto_data.get("mileage", 0)
 
     # Store vehicle info for insurance lookup
