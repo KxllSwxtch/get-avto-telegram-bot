@@ -744,7 +744,7 @@ def calculate_cost(link, message):
         bot.send_message(
             user_id,
             f"🚗 {car_title}\n\n"
-            "Автомобиль не найден в базе pan-auto.ru.\n\n"
+            "Автомобиль не найден в базе.\n\n"
             "Пожалуйста, введите мощность двигателя в л.с. (например: 150):",
         )
         bot.register_next_step_handler(message, process_hp_input_for_url)
