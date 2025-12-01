@@ -5,6 +5,7 @@ import math
 import gc
 import time
 import threading
+import re
 
 PROXY = "http://B01vby:GBno0x@45.118.250.2:8000"
 RESIDENTIAL_PROXY = (
@@ -103,6 +104,22 @@ def generate_encar_photo_url(photo_path):
     photo_url = f"{base_url}/{photo_path}"
 
     return photo_url
+
+
+def sort_photo_urls(photo_urls):
+    """
+    Sort photo URLs by their numeric key (e.g., 41074555_001.jpg -> 001).
+    URLs without a valid key are placed at the end.
+    """
+
+    def extract_photo_number(url):
+        # Match pattern like 41074555_019.jpg or similar
+        match = re.search(r"_(\d+)\.jpg", url)
+        if match:
+            return int(match.group(1))
+        return float("inf")  # Put URLs without numbers at the end
+
+    return sorted(photo_urls, key=extract_photo_number)
 
 
 def get_rub_to_krw_rate():

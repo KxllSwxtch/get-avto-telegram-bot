@@ -26,6 +26,7 @@ from utils import (
     get_rub_to_krw_rate,
     generate_encar_photo_url,
     get_pan_auto_car_data,
+    sort_photo_urls,
 )
 
 
@@ -958,15 +959,27 @@ def calculate_cost_with_pan_auto(pan_auto_data, car_id, message):
     # Send photos if available
     photos = pan_auto_data.get("photos", [])
     if photos:
+        # Extract URLs from photo data
+        photo_urls = []
+        for photo_data in photos:
+            photo_url = (
+                photo_data.get("url", "")
+                if isinstance(photo_data, dict)
+                else str(photo_data)
+            )
+            if photo_url:
+                photo_urls.append(photo_url)
+
+        # Sort by numeric key and limit to 10
+        photo_urls = sort_photo_urls(photo_urls)[:10]
+
         media_group = []
-        for photo_data in photos[:10]:  # Limit to 10 photos
+        for photo_url in photo_urls:
             try:
-                photo_url = photo_data.get("url", "") if isinstance(photo_data, dict) else str(photo_data)
-                if photo_url:
-                    response = requests.get(photo_url)
-                    if response.status_code == 200:
-                        photo = BytesIO(response.content)
-                        media_group.append(types.InputMediaPhoto(photo))
+                response = requests.get(photo_url)
+                if response.status_code == 200:
+                    photo = BytesIO(response.content)
+                    media_group.append(types.InputMediaPhoto(photo))
             except Exception as e:
                 print(f"Error loading photo: {e}")
 
@@ -1211,7 +1224,7 @@ def process_hp_input_for_url(message):
     # Send photos
     if car_photos:
         media_group = []
-        for photo_url in sorted(car_photos)[:10]:
+        for photo_url in sort_photo_urls(car_photos)[:10]:
             try:
                 response = requests.get(photo_url)
                 if response.status_code == 200:
