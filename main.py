@@ -143,6 +143,28 @@ def save_hp_to_cache(manufacturer, model, engine_volume, year, horsepower):
         conn.close()
 
 
+def is_valid_hp(hp_value):
+    """Check if HP value is valid and usable"""
+    if hp_value is None:
+        return False
+    if isinstance(hp_value, str):
+        # Handle strings like "Не указана"
+        return False
+    if isinstance(hp_value, (int, float)):
+        return hp_value > 0
+    return False
+
+
+def has_valid_customs(costs_rub):
+    """Check if customs values from pan-auto.ru are valid"""
+    if not costs_rub:
+        return False
+    customs_duty = costs_rub.get("customsDuty", 0)
+    recycling_fee = costs_rub.get("utilizationFee", 0)
+    # At least customs duty and recycling fee should be positive
+    return customs_duty > 0 and recycling_fee > 0
+
+
 # Настройка базы данных
 import psycopg2
 from psycopg2 import sql
@@ -685,15 +707,32 @@ def calculate_cost(link, message):
     print_message(f"Пробуем получить данные с pan-auto.ru для car_id={car_id}")
     pan_auto_data = get_pan_auto_car_data(car_id)
 
-    if pan_auto_data and pan_auto_data.get("costs"):
-        # Pan-auto.ru has this car - use their pre-calculated customs
-        print_message("Данные найдены на pan-auto.ru, используем их")
-        bot.delete_message(user_id, processing_message.message_id)
-        calculate_cost_with_pan_auto(pan_auto_data, car_id, message)
-        return
+    # Store manufacturer/model from pan-auto.ru if available (for HP caching later)
+    manufacturer_from_pan = ""
+    model_from_pan = ""
 
-    # Pan-auto.ru doesn't have this car - get data from Encar and ask for HP
-    print_message("Данные не найдены на pan-auto.ru, запрашиваем у Encar")
+    # Check if pan-auto.ru has valid data (both customs AND HP must be valid)
+    if pan_auto_data:
+        costs_rub = pan_auto_data.get("costs", {}).get("RUB", {})
+        hp = pan_auto_data.get("hp")
+        manufacturer_from_pan = pan_auto_data.get("manufacturer", {}).get("translation", "")
+        model_from_pan = pan_auto_data.get("model", {}).get("translation", "")
+
+        if costs_rub and is_valid_hp(hp) and has_valid_customs(costs_rub):
+            # Pan-auto.ru has this car with valid data - use their pre-calculated customs
+            print_message("Данные найдены на pan-auto.ru с валидными HP и таможней, используем их")
+            bot.delete_message(user_id, processing_message.message_id)
+            calculate_cost_with_pan_auto(pan_auto_data, car_id, message)
+            return
+        else:
+            # Pan-auto.ru has car but missing HP or customs - log the reason
+            if not is_valid_hp(hp):
+                print_message(f"pan-auto.ru: HP отсутствует или невалидный (hp={hp})")
+            if not has_valid_customs(costs_rub):
+                print_message(f"pan-auto.ru: Таможенные данные невалидны")
+
+    # Pan-auto.ru doesn't have valid data - get data from Encar and ask for HP
+    print_message("Данные не найдены или невалидны на pan-auto.ru, запрашиваем у Encar")
     result = get_car_info(link)
     (
         car_price,
@@ -731,13 +770,14 @@ def calculate_cost(link, message):
         bot.delete_message(user_id, processing_message.message_id)
 
         # Store car info for HP input handler
+        # Use manufacturer/model from pan-auto.ru if available (for HP caching later)
         pending_hp_requests[user_id] = {
             "car_info": result,
             "car_id": car_id,
             "link": link,
             "car_title": car_title,
-            "manufacturer": "",  # Not available from Encar directly
-            "model": "",  # Not available from Encar directly
+            "manufacturer": manufacturer_from_pan,
+            "model": model_from_pan,
         }
 
         # Ask user for HP
