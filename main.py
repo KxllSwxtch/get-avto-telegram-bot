@@ -999,6 +999,7 @@ def calculate_cost_with_pan_auto(pan_auto_data, car_id, message):
 
     # Send photos if available
     photos = pan_auto_data.get("photos", [])
+    photo_msg_id = None
     if photos:
         # Extract URLs from photo data
         photo_urls = []
@@ -1025,13 +1026,16 @@ def calculate_cost_with_pan_auto(pan_auto_data, car_id, message):
                 print(f"Error loading photo: {e}")
 
         if media_group:
-            bot.send_media_group(message.chat.id, media_group)
+            sent_photos = bot.send_media_group(message.chat.id, media_group)
+            if sent_photos:
+                photo_msg_id = sent_photos[-1].message_id
 
     bot.send_message(
         message.chat.id,
         result_message,
         parse_mode="HTML",
         reply_markup=keyboard,
+        reply_to_message_id=photo_msg_id,
     )
 
 
@@ -1263,6 +1267,7 @@ def process_hp_input_for_url(message):
     )
 
     # Send photos
+    photo_msg_id = None
     if car_photos:
         media_group = []
         for photo_url in sort_photo_urls(car_photos)[:10]:
@@ -1275,13 +1280,16 @@ def process_hp_input_for_url(message):
                 print(f"Error loading photo: {e}")
 
         if media_group:
-            bot.send_media_group(message.chat.id, media_group)
+            sent_photos = bot.send_media_group(message.chat.id, media_group)
+            if sent_photos:
+                photo_msg_id = sent_photos[-1].message_id
 
     bot.send_message(
         message.chat.id,
         result_message,
         parse_mode="HTML",
         reply_markup=keyboard,
+        reply_to_message_id=photo_msg_id,
     )
 
 
