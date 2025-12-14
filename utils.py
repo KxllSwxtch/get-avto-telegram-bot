@@ -13,6 +13,21 @@ RESIDENTIAL_PROXY = (
 )
 proxies = {"http": PROXY, "https": PROXY}
 
+# Calcus.ru fuel type mappings (from calcus.ru website)
+FUEL_TYPE_GASOLINE = 1       # Бензиновый
+FUEL_TYPE_DIESEL = 2         # Дизельный
+FUEL_TYPE_ELECTRIC = 4       # Электрический
+FUEL_TYPE_HYBRID_SERIES = 5  # Последовательный гибрид
+FUEL_TYPE_HYBRID_PARALLEL = 6  # Параллельный гибрид
+
+FUEL_TYPE_NAMES = {
+    FUEL_TYPE_GASOLINE: "Бензин",
+    FUEL_TYPE_DIESEL: "Дизель",
+    FUEL_TYPE_ELECTRIC: "Электро",
+    FUEL_TYPE_HYBRID_SERIES: "Гибрид (посл.)",
+    FUEL_TYPE_HYBRID_PARALLEL: "Гибрид (парал.)",
+}
+
 
 class RateLimiter:
     """Простой rate limiter для ограничения количества запросов в секунду"""
@@ -150,7 +165,7 @@ def get_customs_fees(engine_volume, car_price, car_year, car_month, power=1, eng
     :param car_year: Год выпуска авто
     :param car_month: Месяц выпуска авто
     :param power: Мощность двигателя в л.с. (важно для расчёта утильсбора с 01.12.2024)
-    :param engine_type: Тип двигателя (1 - бензин, 2 - дизель, 3 - гибрид, 4 - электромобиль)
+    :param engine_type: Тип двигателя (1 - бензин, 2 - дизель, 4 - электро, 5 - гибрид посл., 6 - гибрид парал.)
     :return: JSON с результатами расчёта
     """
     url = "https://calcus.ru/calculate/Customs"

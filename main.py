@@ -27,6 +27,12 @@ from utils import (
     generate_encar_photo_url,
     get_pan_auto_car_data,
     sort_photo_urls,
+    FUEL_TYPE_GASOLINE,
+    FUEL_TYPE_DIESEL,
+    FUEL_TYPE_ELECTRIC,
+    FUEL_TYPE_HYBRID_SERIES,
+    FUEL_TYPE_HYBRID_PARALLEL,
+    FUEL_TYPE_NAMES,
 )
 
 
@@ -92,6 +98,23 @@ vehicle_no = None
 
 # Pending HP requests for users (when pan-auto.ru doesn't have the car)
 pending_hp_requests = {}
+
+
+def create_fuel_type_keyboard():
+    """Create inline keyboard for fuel type selection."""
+    keyboard = types.InlineKeyboardMarkup(row_width=2)
+    keyboard.add(
+        types.InlineKeyboardButton("Бензин", callback_data="fuel_1"),
+        types.InlineKeyboardButton("Дизель", callback_data="fuel_2"),
+    )
+    keyboard.add(
+        types.InlineKeyboardButton("Электро", callback_data="fuel_4"),
+    )
+    keyboard.add(
+        types.InlineKeyboardButton("Гибрид (посл.)", callback_data="fuel_5"),
+        types.InlineKeyboardButton("Гибрид (парал.)", callback_data="fuel_6"),
+    )
+    return keyboard
 
 
 def extract_car_id_from_url(url):
@@ -1043,9 +1066,8 @@ def process_hp_input_for_url(message):
     """
     Handle HP input when pan-auto.ru doesn't have the car.
     Only MANAGERS can save HP to database.
+    After HP validation, shows fuel type selection keyboard.
     """
-    global car_data, usd_rate, krw_rub_rate, rub_to_krw_rate, vehicle_id, vehicle_no
-
     user_id = message.chat.id
     user_input = message.text.strip()
 
@@ -1059,6 +1081,56 @@ def process_hp_input_for_url(message):
         return
 
     hp = int(user_input)
+
+    if user_id not in pending_hp_requests:
+        bot.send_message(user_id, "Ошибка: данные автомобиля не найдены. Попробуйте снова.")
+        return
+
+    # Store HP in pending data (don't pop yet - wait for fuel type selection)
+    pending_hp_requests[user_id]["hp"] = hp
+
+    # Get data for manager HP caching
+    pending_data = pending_hp_requests[user_id]
+    car_info = pending_data["car_info"]
+    manufacturer = pending_data.get("manufacturer", "")
+    model = pending_data.get("model", "")
+
+    # Unpack car info to get engine displacement and year for caching
+    (
+        car_price,
+        car_engine_displacement,
+        formatted_car_date,
+        _,  # car_title from encar
+        formatted_mileage,
+        formatted_transmission,
+        car_photos,
+        year,
+        month,
+    ) = car_info
+
+    car_engine_displacement = int(car_engine_displacement)
+    full_year = int(f"20{year}")
+
+    # ONLY save HP to cache if user is a MANAGER (trusted source)
+    if user_id in MANAGERS and manufacturer and model:
+        save_hp_to_cache(manufacturer, model, car_engine_displacement, full_year, hp)
+        bot.send_message(user_id, f"✅ Мощность {hp} л.с. сохранена в базу данных.")
+
+    # Show fuel type selection keyboard
+    bot.send_message(
+        user_id,
+        "Выберите тип двигателя:",
+        reply_markup=create_fuel_type_keyboard()
+    )
+
+
+def complete_url_calculation(user_id, message):
+    """
+    Complete the URL-based calculation after HP and fuel type have been selected.
+    Called from the fuel type callback handler.
+    """
+    global car_data, usd_rate, krw_rub_rate, rub_to_krw_rate, vehicle_id, vehicle_no
+
     pending_data = pending_hp_requests.pop(user_id, None)
 
     if not pending_data:
@@ -1068,8 +1140,8 @@ def process_hp_input_for_url(message):
     car_info = pending_data["car_info"]
     car_id = pending_data["car_id"]
     car_title = pending_data.get("car_title", f"Car ID: {car_id}")
-    manufacturer = pending_data.get("manufacturer", "")
-    model = pending_data.get("model", "")
+    hp = pending_data.get("hp", 1)
+    fuel_type = pending_data.get("fuel_type", FUEL_TYPE_GASOLINE)
 
     # Unpack car info
     (
@@ -1088,19 +1160,14 @@ def process_hp_input_for_url(message):
     price_krw = int(car_price) * 10000
     full_year = int(f"20{year}")
 
-    # ONLY save HP to cache if user is a MANAGER (trusted source)
-    if user_id in MANAGERS and manufacturer and model:
-        save_hp_to_cache(manufacturer, model, car_engine_displacement, full_year, hp)
-        bot.send_message(user_id, f"✅ Мощность {hp} л.с. сохранена в базу данных.")
-
-    # Call calcus.ru with actual HP
+    # Call calcus.ru with actual HP and fuel type
     response = get_customs_fees(
         car_engine_displacement,
         price_krw,
         full_year,
         month,
         power=hp,
-        engine_type=1,
+        engine_type=fuel_type,
     )
 
     if not response:
@@ -1228,6 +1295,9 @@ def process_hp_input_for_url(message):
 
     preview_link = f"https://fem.encar.com/cars/detail/{car_id}"
 
+    # Get fuel type name for display
+    fuel_type_name = FUEL_TYPE_NAMES.get(fuel_type, "Бензин")
+
     # Build result message
     result_message = (
         f"{car_title}\n\n"
@@ -1236,6 +1306,7 @@ def process_hp_input_for_url(message):
         f"Стоимость автомобиля в Корее: ₩{format_number(price_krw)} | ${format_number(price_usd)}\n"
         f"Объём двигателя: {engine_volume_formatted}\n"
         f"Мощность: {hp} л.с.\n"
+        f"Тип двигателя: {fuel_type_name}\n"
         f"🟰 <b>Стоимость под ключ до Владивостока</b>:\n<b>${format_number(total_cost_usd)}</b> | <b>₩{format_number(total_cost_krw)}</b> | <b>{format_number(total_cost)} ₽</b>\n\n"
         f"‼️ <b>Доставку до вашего города уточняйте у менеджера @GetAuto_manager_bot</b>\n\n"
         f"Стоимость под ключ актуальна на сегодняшний день, возможны колебания курса на 3-5% от стоимости авто, на момент покупки автомобиля\n\n"
@@ -1272,9 +1343,9 @@ def process_hp_input_for_url(message):
         media_group = []
         for photo_url in sort_photo_urls(car_photos)[:10]:
             try:
-                response = requests.get(photo_url)
-                if response.status_code == 200:
-                    photo = BytesIO(response.content)
+                resp = requests.get(photo_url)
+                if resp.status_code == 200:
+                    photo = BytesIO(resp.content)
                     media_group.append(types.InputMediaPhoto(photo))
             except Exception as e:
                 print(f"Error loading photo: {e}")
@@ -1353,6 +1424,37 @@ def handle_callback_query(call):
     elif call.data == "stats_current":
         # Для кнопки с текущей страницей - просто закрываем уведомление
         bot.answer_callback_query(call.id)
+        return
+
+    elif call.data.startswith("fuel_"):
+        # Handle fuel type selection for both manual and URL fallback flows
+        user_id = call.message.chat.id
+        fuel_type = int(call.data.split("_")[1])
+        fuel_type_name = FUEL_TYPE_NAMES.get(fuel_type, "Бензин")
+
+        # Check which flow the user is in
+        if user_id in user_manual_input and "price_krw" in user_manual_input[user_id]:
+            # Manual calculation flow
+            user_manual_input[user_id]["fuel_type"] = fuel_type
+            bot.answer_callback_query(call.id, f"Выбран тип: {fuel_type_name}")
+            # Delete the fuel type selection message
+            try:
+                bot.delete_message(call.message.chat.id, call.message.message_id)
+            except:
+                pass
+            calculate_manual_cost(user_id)
+        elif user_id in pending_hp_requests and "hp" in pending_hp_requests[user_id]:
+            # URL fallback flow
+            pending_hp_requests[user_id]["fuel_type"] = fuel_type
+            bot.answer_callback_query(call.id, f"Выбран тип: {fuel_type_name}")
+            # Delete the fuel type selection message
+            try:
+                bot.delete_message(call.message.chat.id, call.message.message_id)
+            except:
+                pass
+            complete_url_calculation(user_id, call.message)
+        else:
+            bot.answer_callback_query(call.id, "Ошибка: данные не найдены")
         return
 
     elif call.data.startswith("detail") or call.data.startswith("detail_manual"):
@@ -1802,8 +1904,12 @@ def process_manual_price(message):
 
     user_manual_input[user_id]["price_krw"] = int(user_input)
 
-    # Запускаем расчёт автомобиля
-    calculate_manual_cost(user_id)
+    # Показываем выбор типа двигателя
+    bot.send_message(
+        user_id,
+        "Выберите тип двигателя:",
+        reply_markup=create_fuel_type_keyboard()
+    )
 
 
 # Функция расчёта стоимости авто
@@ -1817,6 +1923,7 @@ def calculate_manual_cost(user_id):
     month = data["month"]
     year = data["year"]
     hp = data.get("horsepower", 1)  # Get HP from user input, default to 1 for backward compatibility
+    fuel_type = data.get("fuel_type", FUEL_TYPE_GASOLINE)  # Get fuel type from user selection
 
     car_engine_displacement = int(engine_volume)
 
@@ -1842,7 +1949,7 @@ def calculate_manual_cost(user_id):
         year,
         month,
         power=hp,  # Pass user-provided HP for accurate utilization fee calculation
-        engine_type=1,
+        engine_type=fuel_type,  # Pass user-selected fuel type
     )
 
     customs_fee = clean_number(response["sbor"])
@@ -1959,11 +2066,15 @@ def calculate_manual_cost(user_id):
     car_data["perm_registration_russia_krw"] = 8000 / krw_rub_rate
     car_data["perm_registration_russia_rub"] = 8000
 
+    # Get fuel type name for display
+    fuel_type_name = FUEL_TYPE_NAMES.get(fuel_type, "Бензин")
+
     # Формирование сообщения
     result_message = (
         f"Возраст: {age_formatted}\n"
         f"Стоимость автомобиля в Корее: ₩{format_number(price_krw)}\n"
-        f"Объём двигателя: {engine_volume_formatted}\n\n"
+        f"Объём двигателя: {engine_volume_formatted}\n"
+        f"Тип двигателя: {fuel_type_name}\n\n"
         f"Примерная стоимость автомобиля под ключ до Владивостока:\n"
         # f"<b>${format_number(total_cost_usd)}</b> | "
         f"<b>₩{format_number(total_cost_krw)}</b> | "
