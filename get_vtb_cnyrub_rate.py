@@ -65,9 +65,9 @@ def get_vtb_cnyrub_rate():
                     # Use 'offer' rate (bank's sell rate)
                     cny_rub_rate = rate.get("offer")
                     if cny_rub_rate:
-                        adjusted_rate = float(cny_rub_rate) * 0.95  # Subtract 5%
-                        logging.info(f"VTB CNY/RUB rate fetched: {cny_rub_rate}, adjusted (-5%): {adjusted_rate}")
-                        print(f"VTB CNY/RUB rate fetched: {cny_rub_rate}, adjusted (-5%): {adjusted_rate}")
+                        adjusted_rate = float(cny_rub_rate) * 1.025  # Add 2.5%
+                        logging.info(f"VTB CNY/RUB rate fetched: {cny_rub_rate}, adjusted (+2.5%): {adjusted_rate}")
+                        print(f"VTB CNY/RUB rate fetched: {cny_rub_rate}, adjusted (+2.5%): {adjusted_rate}")
                         return adjusted_rate
 
             logging.warning("CNY rate not found in VTB response")
@@ -106,10 +106,10 @@ def get_cbr_cnyrub_rate():
                 value = cny_data.get("Value", 0)
                 nominal = cny_data.get("Nominal", 1)
                 rate = value / nominal
-                adjusted_rate = float(rate) * 0.95  # Subtract 5%
+                adjusted_rate = float(rate) * 1.025  # Add 2.5%
 
-                logging.info(f"CBR CNY/RUB rate fetched: {rate}, adjusted (-5%): {adjusted_rate}")
-                print(f"CBR CNY/RUB rate fetched (fallback): {rate}, adjusted (-5%): {adjusted_rate}")
+                logging.info(f"CBR CNY/RUB rate fetched: {rate}, adjusted (+2.5%): {adjusted_rate}")
+                print(f"CBR CNY/RUB rate fetched (fallback): {rate}, adjusted (+2.5%): {adjusted_rate}")
                 return adjusted_rate
 
     except requests.exceptions.Timeout:
