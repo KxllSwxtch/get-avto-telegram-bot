@@ -2076,6 +2076,61 @@ def handle_callback_query(call):
             bot.answer_callback_query(call.id, "Ошибка: данные не найдены")
         return
 
+    elif call.data.startswith("detail_china"):
+        # Detail view for Chinese car calculations
+        print_message("[ЗАПРОС] ДЕТАЛИЗАЦИЯ РАСЧËТА (КИТАЙ)")
+
+        detail_message = (
+            f"<i>ПЕРВАЯ ЧАСТЬ ОПЛАТЫ</i>:\n\n"
+            f"Задаток (бронь авто):\n<b>¥{format_number(car_data['first_payment_cny'])}</b> | <b>{format_number(int(car_data['first_payment_rub']))} ₽</b>\n\n\n"
+            f"<i>ВТОРАЯ ЧАСТЬ ОПЛАТЫ</i>:\n\n"
+            f"Стоимость авто (минус задаток):\n<b>¥{format_number(car_data['car_price_cny'])}</b> | <b>{format_number(int(car_data['car_price_rub']))} ₽</b>\n\n"
+            f"Дилерский сбор:\n<b>¥{format_number(car_data['dealer_china_cny'])}</b> | <b>{format_number(int(car_data['dealer_china_rub']))} ₽</b>\n\n"
+            f"Доставка, снятие с учёта, оформление:\n<b>¥{format_number(car_data['delivery_china_cny'])}</b> | <b>{format_number(int(car_data['delivery_china_rub']))} ₽</b>\n\n"
+            f"<b>Итого расходов по Китаю</b>:\n<b>¥{format_number(car_data['china_total_cny'])}</b> | <b>{format_number(int(car_data['china_total_rub']))} ₽</b>\n\n\n"
+            f"<i>РАСХОДЫ РОССИЯ</i>:\n\n"
+            f"Единая таможенная ставка:\n<b>{format_number(int(car_data['customs_duty_rub']))} ₽</b>\n\n"
+            f"Таможенное оформление:\n<b>{format_number(int(car_data['customs_fee_rub']))} ₽</b>\n\n"
+            f"Утилизационный сбор:\n<b>{format_number(int(car_data['util_fee_rub']))} ₽</b>\n\n"
+            f"Агентские услуги:\n<b>{format_number(car_data['agent_russia_rub'])} ₽</b>\n\n"
+            f"Брокер:\n<b>{format_number(car_data['broker_russia_rub'])} ₽</b>\n\n"
+            f"СВХ:\n<b>{format_number(car_data['svh_russia_rub'])} ₽</b>\n\n"
+            f"Лаборатория, СБКТС, ЭПТС:\n<b>{format_number(car_data['lab_russia_rub'])} ₽</b>\n\n"
+            f"<b>Доставку до вашего города уточняйте у менеджера @GetAuto_manager_bot</b>\n\n"
+            "<b>СТОИМОСТЬ ПОД КЛЮЧ АКТУАЛЬНА НА СЕГОДНЯШНИЙ ДЕНЬ, ВОЗМОЖНЫ КОЛЕБАНИЯ КУРСА НА 3-5% ОТ СТОИМОСТИ АВТО, НА МОМЕНТ ПОКУПКИ АВТОМОБИЛЯ</b>\n\n"
+        )
+
+        # Inline buttons for further actions
+        keyboard = types.InlineKeyboardMarkup()
+
+        if call.data == "detail_china_manual":
+            keyboard.add(
+                types.InlineKeyboardButton(
+                    "Рассчитать стоимость другого автомобиля",
+                    callback_data="calculate_another_manual",
+                )
+            )
+        else:
+            keyboard.add(
+                types.InlineKeyboardButton(
+                    "Рассчитать стоимость другого автомобиля",
+                    callback_data="calculate_another",
+                )
+            )
+
+        keyboard.add(
+            types.InlineKeyboardButton(
+                "Связаться с менеджером", url="https://t.me/GetAuto_manager_bot"
+            )
+        )
+
+        bot.send_message(
+            call.message.chat.id,
+            detail_message,
+            parse_mode="HTML",
+            reply_markup=keyboard,
+        )
+
     elif call.data.startswith("detail") or call.data.startswith("detail_manual"):
         print_message("[ЗАПРОС] ДЕТАЛИЗАЦИЯ РАСЧËТА")
 
@@ -2106,61 +2161,6 @@ def handle_callback_query(call):
         keyboard = types.InlineKeyboardMarkup()
 
         if call.data.startswith("detail_manual"):
-            keyboard.add(
-                types.InlineKeyboardButton(
-                    "Рассчитать стоимость другого автомобиля",
-                    callback_data="calculate_another_manual",
-                )
-            )
-        else:
-            keyboard.add(
-                types.InlineKeyboardButton(
-                    "Рассчитать стоимость другого автомобиля",
-                    callback_data="calculate_another",
-                )
-            )
-
-        keyboard.add(
-            types.InlineKeyboardButton(
-                "Связаться с менеджером", url="https://t.me/GetAuto_manager_bot"
-            )
-        )
-
-        bot.send_message(
-            call.message.chat.id,
-            detail_message,
-            parse_mode="HTML",
-            reply_markup=keyboard,
-        )
-
-    elif call.data.startswith("detail_china"):
-        # Detail view for Chinese car calculations
-        print_message("[ЗАПРОС] ДЕТАЛИЗАЦИЯ РАСЧËТА (КИТАЙ)")
-
-        detail_message = (
-            f"<i>ПЕРВАЯ ЧАСТЬ ОПЛАТЫ</i>:\n\n"
-            f"Задаток (бронь авто):\n<b>¥{format_number(car_data['first_payment_cny'])}</b> | <b>{format_number(int(car_data['first_payment_rub']))} ₽</b>\n\n\n"
-            f"<i>ВТОРАЯ ЧАСТЬ ОПЛАТЫ</i>:\n\n"
-            f"Стоимость авто (минус задаток):\n<b>¥{format_number(car_data['car_price_cny'])}</b> | <b>{format_number(int(car_data['car_price_rub']))} ₽</b>\n\n"
-            f"Дилерский сбор:\n<b>¥{format_number(car_data['dealer_china_cny'])}</b> | <b>{format_number(int(car_data['dealer_china_rub']))} ₽</b>\n\n"
-            f"Доставка, снятие с учёта, оформление:\n<b>¥{format_number(car_data['delivery_china_cny'])}</b> | <b>{format_number(int(car_data['delivery_china_rub']))} ₽</b>\n\n"
-            f"<b>Итого расходов по Китаю</b>:\n<b>¥{format_number(car_data['china_total_cny'])}</b> | <b>{format_number(int(car_data['china_total_rub']))} ₽</b>\n\n\n"
-            f"<i>РАСХОДЫ РОССИЯ</i>:\n\n"
-            f"Единая таможенная ставка:\n<b>{format_number(int(car_data['customs_duty_rub']))} ₽</b>\n\n"
-            f"Таможенное оформление:\n<b>{format_number(int(car_data['customs_fee_rub']))} ₽</b>\n\n"
-            f"Утилизационный сбор:\n<b>{format_number(int(car_data['util_fee_rub']))} ₽</b>\n\n"
-            f"Агентские услуги:\n<b>{format_number(car_data['agent_russia_rub'])} ₽</b>\n\n"
-            f"Брокер:\n<b>{format_number(car_data['broker_russia_rub'])} ₽</b>\n\n"
-            f"СВХ:\n<b>{format_number(car_data['svh_russia_rub'])} ₽</b>\n\n"
-            f"Лаборатория, СБКТС, ЭПТС:\n<b>{format_number(car_data['lab_russia_rub'])} ₽</b>\n\n"
-            f"<b>Доставку до вашего города уточняйте у менеджера @GetAuto_manager_bot</b>\n\n"
-            "<b>СТОИМОСТЬ ПОД КЛЮЧ АКТУАЛЬНА НА СЕГОДНЯШНИЙ ДЕНЬ, ВОЗМОЖНЫ КОЛЕБАНИЯ КУРСА НА 3-5% ОТ СТОИМОСТИ АВТО, НА МОМЕНТ ПОКУПКИ АВТОМОБИЛЯ</b>\n\n"
-        )
-
-        # Inline buttons for further actions
-        keyboard = types.InlineKeyboardMarkup()
-
-        if call.data == "detail_china_manual":
             keyboard.add(
                 types.InlineKeyboardButton(
                     "Рассчитать стоимость другого автомобиля",
@@ -2271,7 +2271,7 @@ def handle_callback_query(call):
     elif call.data == "calculate_another":
         bot.send_message(
             call.message.chat.id,
-            "Пожалуйста, введите ссылку на автомобиль с сайта www.encar.com:",
+            "Пожалуйста, введите ссылку на автомобиль с сайта www.encar.com или che168.com:",
         )
 
     elif call.data == "calculate_another_manual":
@@ -2352,7 +2352,7 @@ def handle_message(message):
     if user_message == CALCULATE_CAR_TEXT:
         bot.send_message(
             message.chat.id,
-            "Пожалуйста, введите ссылку на автомобиль с сайта www.encar.com:",
+            "Пожалуйста, введите ссылку на автомобиль с сайта www.encar.com или che168.com:",
         )
 
     elif user_message == MANUAL_CAR_TEXT:
