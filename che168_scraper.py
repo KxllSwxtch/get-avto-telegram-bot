@@ -11,8 +11,9 @@ import requests
 import logging
 from datetime import datetime
 
-# Che168 API endpoint
+# Che168 API endpoints
 CHE168_API_URL = "https://apiuscdt.che168.com/apic/v2/car/getcarinfo"
+CHE168_SPECS_API_URL = "https://apiuscdt.che168.com/api/v1/car/getparamtypeitems"
 
 # Request headers for Che168 API
 CHE168_HEADERS = {
@@ -168,6 +169,102 @@ def get_che168_car_info(infoid, proxies=None):
         logging.error(f"Che168 scraper error: {e}")
         print(f"Che168 scraper error: {e}")
         return None
+
+
+def get_che168_car_specs(infoid, proxies=None):
+    """
+    Fetch car specifications from Che168 specs API.
+    Returns detailed specs including HP.
+
+    Args:
+        infoid: Car listing ID
+        proxies: Optional proxy configuration dict
+
+    Returns:
+        dict: Specs API response, or None if fetching fails
+    """
+    try:
+        params = {
+            "infoid": str(infoid),
+            "_appid": "2sc.m",
+            "v": "11.41.5",
+            "deviceid": "",
+            "userid": "0",
+            "s_pid": "0",
+            "s_cid": "0",
+            "_subappid": "",
+        }
+
+        response = requests.get(
+            CHE168_SPECS_API_URL,
+            params=params,
+            headers=CHE168_HEADERS,
+            proxies=proxies,
+            timeout=30
+        )
+
+        if response.status_code == 200:
+            return response.json()
+
+        logging.warning(f"Che168 specs API HTTP error: {response.status_code}")
+        return None
+
+    except requests.exceptions.Timeout:
+        logging.error("Che168 specs API timeout")
+        return None
+    except requests.exceptions.RequestException as e:
+        logging.error(f"Che168 specs API request failed: {e}")
+        return None
+    except Exception as e:
+        logging.error(f"Che168 specs API error: {e}")
+        return None
+
+
+def extract_hp_from_specs(specs_data):
+    """
+    Extract horsepower from specs API response.
+    Looks for "最大马力(Ps)" in the engine section.
+
+    API returns list of sections like:
+    [
+      {"title": "发动机", "data": [
+        {"name": "最大马力(Ps)", "content": "340", ...},
+        ...
+      ]},
+      ...
+    ]
+
+    Args:
+        specs_data: Response from get_che168_car_specs()
+
+    Returns:
+        int: Horsepower value, or None if not found
+    """
+    if not specs_data or specs_data.get("returncode") != 0:
+        return None
+
+    result = specs_data.get("result", [])
+
+    for section in result:
+        # Look in "发动机" (Engine) section for direct HP value
+        if section.get("title") == "发动机":
+            for item in section.get("data", []):
+                if item.get("name") == "最大马力(Ps)":
+                    try:
+                        return int(item.get("content", 0))
+                    except (ValueError, TypeError):
+                        pass
+
+        # Fallback: Look in "基本参数" for engine string with HP
+        if section.get("title") == "基本参数":
+            for item in section.get("data", []):
+                if item.get("name") == "发动机":
+                    content = item.get("content", "")
+                    match = re.search(r'(\d+)马力', content)
+                    if match:
+                        return int(match.group(1))
+
+    return None
 
 
 def parse_che168_response(result):
@@ -350,12 +447,13 @@ def get_che168_car_info_with_fallback(infoid):
     """
     Fetch car info with proxy fallback mechanism.
     Tries: Oxylabs China → Russian datacenter → direct connection
+    Also fetches specs to get HP value.
 
     Args:
         infoid: Car listing ID (infoid)
 
     Returns:
-        dict: Car information, or None if all proxies fail
+        dict: Car information with HP, or None if all proxies fail
     """
     proxy_names = ["Oxylabs China", "Russian datacenter", "direct"]
 
@@ -367,6 +465,20 @@ def get_che168_car_info_with_fallback(infoid):
         if result is not None:
             print(f"Success with {proxy_names[i]} proxy")
             logging.info(f"Che168 success with {proxy_names[i]} proxy")
+
+            # Fetch HP from specs API
+            print(f"Fetching specs for HP...")
+            specs = get_che168_car_specs(infoid, proxies=proxy)
+            hp = extract_hp_from_specs(specs)
+            result["horsepower"] = hp or 200  # Default to 200 if not found
+
+            if hp:
+                print(f"HP extracted: {hp}")
+                logging.info(f"Che168 HP extracted: {hp}")
+            else:
+                print("HP not found in specs, using default: 200")
+                logging.warning("Che168 HP not found, using default: 200")
+
             return result
 
         print(f"Failed with {proxy_names[i]} proxy, trying next...")
