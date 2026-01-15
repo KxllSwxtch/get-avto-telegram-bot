@@ -65,9 +65,10 @@ def get_vtb_cnyrub_rate():
                     # Use 'offer' rate (bank's sell rate)
                     cny_rub_rate = rate.get("offer")
                     if cny_rub_rate:
-                        logging.info(f"VTB CNY/RUB rate fetched: {cny_rub_rate}")
-                        print(f"VTB CNY/RUB rate fetched: {cny_rub_rate}")
-                        return float(cny_rub_rate)
+                        adjusted_rate = float(cny_rub_rate) * 0.95  # Subtract 5%
+                        logging.info(f"VTB CNY/RUB rate fetched: {cny_rub_rate}, adjusted (-5%): {adjusted_rate}")
+                        print(f"VTB CNY/RUB rate fetched: {cny_rub_rate}, adjusted (-5%): {adjusted_rate}")
+                        return adjusted_rate
 
             logging.warning("CNY rate not found in VTB response")
             print("CNY rate not found in VTB response, trying CBR fallback...")
