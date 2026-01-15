@@ -1491,17 +1491,37 @@ def calculate_china_cost(link, message):
         pending_china_hp_requests[user_id]["hp"] = horsepower
         logging.info(f"Using auto-extracted HP: {horsepower} for user {user_id}")
 
-        # Show fuel type keyboard directly
-        keyboard = create_fuel_type_keyboard()
-        bot.send_message(
-            user_id,
-            f"🚗 {car_name}\n"
-            f"📍 {city_name}\n"
-            f"💰 ¥{price_cny:,}\n"
-            f"🐎 {horsepower} л.с.\n\n"
-            "Выберите тип двигателя:",
-            reply_markup=keyboard
-        )
+        # Check if fuel type is also valid
+        valid_fuel_types = {1, 2, 4, 5, 6}
+        if fuel_type_code in valid_fuel_types:
+            # Both HP and fuel type are valid - skip to calculation
+            logging.info(f"Using auto-extracted fuel type: {fuel_type_code} ({fuel_type_ru}) for user {user_id}")
+
+            # Send info message
+            bot.send_message(
+                user_id,
+                f"🚗 {car_name}\n"
+                f"📍 {city_name}\n"
+                f"💰 ¥{price_cny:,}\n"
+                f"🐎 {horsepower} л.с.\n"
+                f"⛽ {fuel_type_ru}\n\n"
+                "⏳ Выполняю расчёт..."
+            )
+
+            # Skip fuel type selection, proceed to calculation
+            complete_china_calculation(user_id, message)
+        else:
+            # Fuel type unknown - show selection keyboard
+            keyboard = create_fuel_type_keyboard()
+            bot.send_message(
+                user_id,
+                f"🚗 {car_name}\n"
+                f"📍 {city_name}\n"
+                f"💰 ¥{price_cny:,}\n"
+                f"🐎 {horsepower} л.с.\n\n"
+                "Выберите тип двигателя:",
+                reply_markup=keyboard
+            )
     else:
         # HP not available or invalid, ask user for input
         bot.send_message(
