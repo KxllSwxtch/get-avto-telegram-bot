@@ -20,6 +20,7 @@ from get_google_usdrub_rate import get_usdrub_rate
 from get_vtb_cnyrub_rate import get_vtb_cnyrub_rate
 from che168_scraper import (
     get_che168_car_info,
+    get_che168_car_info_with_fallback,
     extract_car_id_from_che168_url,
     is_che168_url,
     format_mileage as format_che168_mileage,
@@ -1444,8 +1445,8 @@ def calculate_china_cost(link, message):
         send_error_message(message, "Не удалось извлечь ID автомобиля из ссылки.")
         return
 
-    # Fetch car info from Che168 API
-    car_info = get_che168_car_info(car_id, proxies=PROXIES)
+    # Fetch car info from Che168 API (with proxy fallback)
+    car_info = get_che168_car_info_with_fallback(car_id)
     if not car_info:
         bot.delete_message(user_id, processing_message.message_id)
         send_error_message(message, "Не удалось получить данные об автомобиле. Попробуйте позже.")

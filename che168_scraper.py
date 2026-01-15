@@ -6,6 +6,7 @@ using their mobile API endpoint.
 """
 
 import re
+import time
 import requests
 import logging
 from datetime import datetime
@@ -49,6 +50,18 @@ FUEL_TYPE_NAMES_RU = {
     "油电混合": "Гибрид",
     "增程式": "Гибрид (рейндж-экстендер)",
 }
+
+# Proxy configurations for Che168 (with fallback options)
+CHE168_PROXY_OPTIONS = [
+    # Oxylabs China proxy (primary)
+    {"http": "http://customer-tiksanauto_M2zEp-cc-cn:Tiksan_auto99@pr.oxylabs.io:7777",
+     "https": "http://customer-tiksanauto_M2zEp-cc-cn:Tiksan_auto99@pr.oxylabs.io:7777"},
+    # Russian datacenter proxy (fallback)
+    {"http": "http://B01vby:GBno0x@45.118.250.2:8000",
+     "https": "http://B01vby:GBno0x@45.118.250.2:8000"},
+    # No proxy (last resort)
+    None,
+]
 
 
 def extract_car_id_from_che168_url(url):
@@ -331,6 +344,37 @@ def format_gearbox(gearbox_cn):
         "双离合": "Робот (DCT)",
     }
     return mapping.get(gearbox_cn, gearbox_cn)
+
+
+def get_che168_car_info_with_fallback(infoid):
+    """
+    Fetch car info with proxy fallback mechanism.
+    Tries: Oxylabs China → Russian datacenter → direct connection
+
+    Args:
+        infoid: Car listing ID (infoid)
+
+    Returns:
+        dict: Car information, or None if all proxies fail
+    """
+    proxy_names = ["Oxylabs China", "Russian datacenter", "direct"]
+
+    for i, proxy in enumerate(CHE168_PROXY_OPTIONS):
+        print(f"Trying Che168 API with {proxy_names[i]} proxy...")
+        logging.info(f"Trying Che168 API with {proxy_names[i]} proxy...")
+
+        result = get_che168_car_info(infoid, proxies=proxy)
+        if result is not None:
+            print(f"Success with {proxy_names[i]} proxy")
+            logging.info(f"Che168 success with {proxy_names[i]} proxy")
+            return result
+
+        print(f"Failed with {proxy_names[i]} proxy, trying next...")
+        time.sleep(1)
+
+    logging.error("All Che168 proxy options exhausted")
+    print("All Che168 proxy options exhausted")
+    return None
 
 
 if __name__ == "__main__":
