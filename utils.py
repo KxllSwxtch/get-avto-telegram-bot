@@ -157,15 +157,16 @@ def clean_number(value):
     return int(float(value.replace(" ", "").replace(",", ".")))
 
 
-def get_customs_fees(engine_volume, car_price, car_year, car_month, power=1, engine_type=1):
+def get_customs_fees(engine_volume, car_price, car_year, car_month, power=1, engine_type=1, currency="KRW"):
     """
     Запрашивает расчёт таможенных платежей с сайта calcus.ru.
     :param engine_volume: Объём двигателя (куб. см)
-    :param car_price: Цена авто в вонах
+    :param car_price: Цена авто в указанной валюте
     :param car_year: Год выпуска авто
     :param car_month: Месяц выпуска авто
     :param power: Мощность двигателя в л.с. (важно для расчёта утильсбора с 01.12.2024)
     :param engine_type: Тип двигателя (1 - бензин, 2 - дизель, 4 - электро, 5 - гибрид посл., 6 - гибрид парал.)
+    :param currency: Валюта цены ("KRW" для Кореи, "CNY" для Китая)
     :return: JSON с результатами расчёта
     """
     url = "https://calcus.ru/calculate/Customs"
@@ -177,8 +178,8 @@ def get_customs_fees(engine_volume, car_price, car_year, car_month, power=1, eng
         "power": int(power),  # Мощность двигателя в л.с.
         "power_unit": 1,  # Тип мощности (1 - л.с.)
         "value": int(engine_volume),  # Объём двигателя
-        "price": int(car_price),  # Цена авто в KRW
-        "curr": "KRW",  # Валюта
+        "price": int(car_price),  # Цена авто
+        "curr": currency,  # Валюта (KRW или CNY)
     }
 
     headers = {
