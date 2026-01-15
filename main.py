@@ -1464,6 +1464,7 @@ def calculate_china_cost(link, message):
     city_name = car_info["city_name"]
     photos = car_info["photos"]
     gearbox = car_info.get("gearbox", "")
+    horsepower = car_info.get("horsepower")
 
     # Delete processing message
     bot.delete_message(user_id, processing_message.message_id)
@@ -1481,17 +1482,36 @@ def calculate_china_cost(link, message):
         "fuel_type_code": fuel_type_code,
         "fuel_type_ru": fuel_type_ru,
         "photos": photos,
+        "horsepower": horsepower,
     }
 
-    # Ask user for HP
-    bot.send_message(
-        user_id,
-        f"🚗 {car_name}\n"
-        f"📍 {city_name}\n"
-        f"💰 ¥{price_cny:,}\n\n"
-        "Пожалуйста, введите мощность двигателя в л.с. (например: 340):",
-    )
-    bot.register_next_step_handler(message, process_china_hp_input)
+    # Check if HP was successfully extracted and is valid
+    if horsepower and 50 <= horsepower <= 1000:
+        # Use auto-extracted HP, skip manual input
+        pending_china_hp_requests[user_id]["hp"] = horsepower
+        logging.info(f"Using auto-extracted HP: {horsepower} for user {user_id}")
+
+        # Show fuel type keyboard directly
+        keyboard = create_fuel_type_keyboard()
+        bot.send_message(
+            user_id,
+            f"🚗 {car_name}\n"
+            f"📍 {city_name}\n"
+            f"💰 ¥{price_cny:,}\n"
+            f"🐎 {horsepower} л.с.\n\n"
+            "Выберите тип двигателя:",
+            reply_markup=keyboard
+        )
+    else:
+        # HP not available or invalid, ask user for input
+        bot.send_message(
+            user_id,
+            f"🚗 {car_name}\n"
+            f"📍 {city_name}\n"
+            f"💰 ¥{price_cny:,}\n\n"
+            "Пожалуйста, введите мощность двигателя в л.с. (например: 340):",
+        )
+        bot.register_next_step_handler(message, process_china_hp_input)
 
 
 def process_china_hp_input(message):
