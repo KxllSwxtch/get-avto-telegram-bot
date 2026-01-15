@@ -1585,6 +1585,8 @@ def complete_china_calculation(user_id, message):
     fuel_type_code = pending_data.get("fuel_type", pending_data.get("fuel_type_code", 1))
     hp = pending_data["hp"]
     photos = pending_data.get("photos", [])
+    link = pending_data.get("link", "")
+    fuel_type_name = FUEL_TYPE_NAMES.get(fuel_type_code, "Бензин")
 
     # Call calcus.ru API with CNY currency
     response = get_customs_fees(
@@ -1623,6 +1625,7 @@ def complete_china_calculation(user_id, message):
     total_cost_rub = first_payment_rub + china_total_rub + russia_expenses_rub
     total_cost_usd = total_cost_rub / usd_rate
     total_cost_cny = total_cost_rub / cny_rub_rate
+    price_usd = int(price_cny * cny_rub_rate / usd_rate)
 
     # Calculate age
     age = calculate_age(year, month)
@@ -1654,45 +1657,30 @@ def complete_china_calculation(user_id, message):
     car_data["total_cost_rub"] = total_cost_rub
     car_data["total_cost_usd"] = total_cost_usd
     car_data["total_cost_cny"] = total_cost_cny
+    car_data["link"] = link
+    car_data["car_name"] = car_name
+    car_data["fuel_type_name"] = fuel_type_name
 
-    # Format result message
+    # Format result message (matching Korean format)
     result_message = (
-        f"🚗 <b>{car_name}</b>\n\n"
-        f"📅 Первая регистрация: {year}-{month:02d} ({age_formatted})\n"
-        f"🔧 Двигатель: {displacement_cc}cc / {hp} л.с.\n"
-        f"💰 Цена: ¥{price_cny:,}\n\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"<b>ПЕРВАЯ ЧАСТЬ ОПЛАТЫ:</b>\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n\n"
-        f"Задаток (бронь авто):\n"
-        f"¥{CHINA_FIRST_PAYMENT:,} (задаток ¥{CHINA_DEPOSIT:,} + отчет эксперта ¥{CHINA_EXPERT_REPORT:,})\n\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"<b>ВТОРАЯ ЧАСТЬ ОПЛАТЫ:</b>\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n\n"
-        f"Стоимость авто (минус задаток):\n¥{car_price_after_deposit:,}\n\n"
-        f"Дилерский сбор:\n¥{CHINA_DEALER_FEE:,}\n\n"
-        f"Доставка, снятие с учёта, оформление:\n¥{CHINA_DELIVERY:,}\n\n"
-        f"<b>Итого расходов по Китаю:</b>\n¥{china_total_cny:,} ({format_number(int(china_total_rub))} ₽)\n\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"<b>РАСХОДЫ РОССИЯ:</b>\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n\n"
-        f"Единая таможенная ставка:\n{format_number(customs_duty)} ₽\n\n"
-        f"Таможенное оформление:\n{format_number(customs_fee)} ₽\n\n"
-        f"Утилизационный сбор:\n{format_number(recycling_fee)} ₽\n\n"
-        f"Агентские услуги:\n{format_number(CHINA_AGENT_FEE)} ₽\n\n"
-        f"Брокер:\n{format_number(CHINA_BROKER_FEE)} ₽\n\n"
-        f"СВХ:\n{format_number(CHINA_SVH_FEE)} ₽\n\n"
-        f"Лаборатория, СБКТС, ЭПТС:\n{format_number(CHINA_LAB_FEE)} ₽\n\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"<b>💵 ИТОГО ПОД КЛЮЧ:</b>\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n\n"
-        f"<b>{format_number(int(total_cost_rub))} ₽</b>\n"
-        f"${total_cost_usd:,.0f} | ¥{total_cost_cny:,.0f}\n\n"
-        f"Курс VTB: 1 CNY = {cny_rub_rate:.4f} ₽"
+        f"{car_name}\n\n"
+        f"Возраст: {age_formatted} (дата регистрации: {month:02d}/{year})\n"
+        f"Стоимость автомобиля в Китае: ¥{format_number(price_cny)} | ${format_number(price_usd)}\n"
+        f"Объём двигателя: {format_number(displacement_cc)} cc\n"
+        f"Мощность: {hp} л.с.\n"
+        f"Тип двигателя: {fuel_type_name}\n"
+        f"🟰 <b>Стоимость под ключ до Владивостока</b>:\n<b>${format_number(int(total_cost_usd))}</b> | <b>¥{format_number(int(total_cost_cny))}</b> | <b>{format_number(int(total_cost_rub))} ₽</b>\n\n"
+        f"‼️ <b>Доставку до вашего города уточняйте у менеджера @GetAuto_manager_bot</b>\n\n"
+        f"Стоимость под ключ актуальна на сегодняшний день, возможны колебания курса на 3-5% от стоимости авто, на момент покупки автомобиля\n\n"
+        f"🔗 <a href='{link}'>Ссылка на автомобиль</a>\n\n"
+        f"🔗 <a href='https://t.me/Getauto_kor'>Официальный телеграм канал</a>\n"
     )
 
     # Create keyboard
     keyboard = types.InlineKeyboardMarkup()
+    keyboard.add(
+        types.InlineKeyboardButton("Детали расчёта", callback_data="detail_china")
+    )
     keyboard.add(
         types.InlineKeyboardButton(
             "Написать менеджеру", url="https://t.me/GetAuto_manager_bot"
@@ -1901,6 +1889,7 @@ def calculate_manual_china_cost(user_id):
     total_cost_rub = first_payment_rub + china_total_rub + russia_expenses_rub
     total_cost_usd = total_cost_rub / usd_rate
     total_cost_cny = total_cost_rub / cny_rub_rate
+    price_usd = int(price_cny * cny_rub_rate / usd_rate)
 
     # Calculate age
     age = calculate_age(year, month)
@@ -1912,54 +1901,57 @@ def calculate_manual_china_cost(user_id):
 
     fuel_type_name = FUEL_TYPE_NAMES.get(fuel_type, "Бензин")
 
-    # Format result message
+    # Store car_data for detail view
+    car_data["source"] = "che168_manual"
+    car_data["first_payment_cny"] = CHINA_FIRST_PAYMENT
+    car_data["first_payment_rub"] = first_payment_rub
+    car_data["car_price_cny"] = car_price_after_deposit
+    car_data["car_price_rub"] = car_price_after_deposit * cny_rub_rate
+    car_data["dealer_china_cny"] = CHINA_DEALER_FEE
+    car_data["dealer_china_rub"] = dealer_fee_rub
+    car_data["delivery_china_cny"] = CHINA_DELIVERY
+    car_data["delivery_china_rub"] = delivery_rub
+    car_data["china_total_cny"] = china_total_cny
+    car_data["china_total_rub"] = china_total_rub
+    car_data["customs_duty_rub"] = customs_duty
+    car_data["customs_fee_rub"] = customs_fee
+    car_data["util_fee_rub"] = recycling_fee
+    car_data["agent_russia_rub"] = CHINA_AGENT_FEE
+    car_data["broker_russia_rub"] = CHINA_BROKER_FEE
+    car_data["svh_russia_rub"] = CHINA_SVH_FEE
+    car_data["lab_russia_rub"] = CHINA_LAB_FEE
+    car_data["total_cost_rub"] = total_cost_rub
+    car_data["total_cost_usd"] = total_cost_usd
+    car_data["total_cost_cny"] = total_cost_cny
+    car_data["fuel_type_name"] = fuel_type_name
+
+    # Format result message (matching Korean manual format)
     result_message = (
-        f"🚗 <b>Расчёт автомобиля из Китая (ручной ввод)</b>\n\n"
-        f"📅 Первая регистрация: {year}-{month:02d} ({age_formatted})\n"
-        f"🔧 Двигатель: {engine_cc}cc / {hp} л.с.\n"
-        f"⛽️ Топливо: {fuel_type_name}\n"
-        f"💰 Цена: ¥{price_cny:,}\n\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"<b>ПЕРВАЯ ЧАСТЬ ОПЛАТЫ:</b>\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n\n"
-        f"Задаток (бронь авто):\n"
-        f"¥{CHINA_FIRST_PAYMENT:,} (задаток ¥{CHINA_DEPOSIT:,} + отчет эксперта ¥{CHINA_EXPERT_REPORT:,})\n\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"<b>ВТОРАЯ ЧАСТЬ ОПЛАТЫ:</b>\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n\n"
-        f"Стоимость авто (минус задаток):\n¥{car_price_after_deposit:,}\n\n"
-        f"Дилерский сбор:\n¥{CHINA_DEALER_FEE:,}\n\n"
-        f"Доставка, снятие с учёта, оформление:\n¥{CHINA_DELIVERY:,}\n\n"
-        f"<b>Итого расходов по Китаю:</b>\n¥{china_total_cny:,} ({format_number(int(china_total_rub))} ₽)\n\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"<b>РАСХОДЫ РОССИЯ:</b>\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n\n"
-        f"Единая таможенная ставка:\n{format_number(customs_duty)} ₽\n\n"
-        f"Таможенное оформление:\n{format_number(customs_fee)} ₽\n\n"
-        f"Утилизационный сбор:\n{format_number(recycling_fee)} ₽\n\n"
-        f"Агентские услуги:\n{format_number(CHINA_AGENT_FEE)} ₽\n\n"
-        f"Брокер:\n{format_number(CHINA_BROKER_FEE)} ₽\n\n"
-        f"СВХ:\n{format_number(CHINA_SVH_FEE)} ₽\n\n"
-        f"Лаборатория, СБКТС, ЭПТС:\n{format_number(CHINA_LAB_FEE)} ₽\n\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"<b>💵 ИТОГО ПОД КЛЮЧ:</b>\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n\n"
-        f"<b>{format_number(int(total_cost_rub))} ₽</b>\n"
-        f"${total_cost_usd:,.0f} | ¥{total_cost_cny:,.0f}\n\n"
-        f"Курс VTB: 1 CNY = {cny_rub_rate:.4f} ₽"
+        f"Возраст: {age_formatted}\n"
+        f"Стоимость автомобиля в Китае: ¥{format_number(price_cny)}\n"
+        f"Объём двигателя: {format_number(engine_cc)} cc\n"
+        f"Мощность: {hp} л.с.\n"
+        f"Тип двигателя: {fuel_type_name}\n\n"
+        f"Примерная стоимость автомобиля под ключ до Владивостока:\n"
+        f"<b>¥{format_number(int(total_cost_cny))}</b> | "
+        f"<b>{format_number(int(total_cost_rub))} ₽</b>\n\n"
+        "Если данное авто попадает под санкции, пожалуйста уточните возможность отправки в вашу страну у менеджера @GetAuto_manager_bot\n\n"
+        "🔗 <a href='https://t.me/Getauto_kor'>Официальный телеграм канал</a>\n"
     )
 
     # Create keyboard
     keyboard = types.InlineKeyboardMarkup()
     keyboard.add(
+        types.InlineKeyboardButton("Детали расчёта", callback_data="detail_china_manual")
+    )
+    keyboard.add(
         types.InlineKeyboardButton(
-            "Написать менеджеру", url="https://t.me/GetAuto_manager_bot"
+            "Рассчитать другой автомобиль", callback_data="calculate_another_manual"
         )
     )
     keyboard.add(
         types.InlineKeyboardButton(
-            "Расчёт другого автомобиля",
-            callback_data="calculate_another",
+            "Написать менеджеру", url="https://t.me/GetAuto_manager_bot"
         )
     )
 
@@ -2114,6 +2106,61 @@ def handle_callback_query(call):
         keyboard = types.InlineKeyboardMarkup()
 
         if call.data.startswith("detail_manual"):
+            keyboard.add(
+                types.InlineKeyboardButton(
+                    "Рассчитать стоимость другого автомобиля",
+                    callback_data="calculate_another_manual",
+                )
+            )
+        else:
+            keyboard.add(
+                types.InlineKeyboardButton(
+                    "Рассчитать стоимость другого автомобиля",
+                    callback_data="calculate_another",
+                )
+            )
+
+        keyboard.add(
+            types.InlineKeyboardButton(
+                "Связаться с менеджером", url="https://t.me/GetAuto_manager_bot"
+            )
+        )
+
+        bot.send_message(
+            call.message.chat.id,
+            detail_message,
+            parse_mode="HTML",
+            reply_markup=keyboard,
+        )
+
+    elif call.data.startswith("detail_china"):
+        # Detail view for Chinese car calculations
+        print_message("[ЗАПРОС] ДЕТАЛИЗАЦИЯ РАСЧËТА (КИТАЙ)")
+
+        detail_message = (
+            f"<i>ПЕРВАЯ ЧАСТЬ ОПЛАТЫ</i>:\n\n"
+            f"Задаток (бронь авто):\n<b>¥{format_number(car_data['first_payment_cny'])}</b> | <b>{format_number(int(car_data['first_payment_rub']))} ₽</b>\n\n\n"
+            f"<i>ВТОРАЯ ЧАСТЬ ОПЛАТЫ</i>:\n\n"
+            f"Стоимость авто (минус задаток):\n<b>¥{format_number(car_data['car_price_cny'])}</b> | <b>{format_number(int(car_data['car_price_rub']))} ₽</b>\n\n"
+            f"Дилерский сбор:\n<b>¥{format_number(car_data['dealer_china_cny'])}</b> | <b>{format_number(int(car_data['dealer_china_rub']))} ₽</b>\n\n"
+            f"Доставка, снятие с учёта, оформление:\n<b>¥{format_number(car_data['delivery_china_cny'])}</b> | <b>{format_number(int(car_data['delivery_china_rub']))} ₽</b>\n\n"
+            f"<b>Итого расходов по Китаю</b>:\n<b>¥{format_number(car_data['china_total_cny'])}</b> | <b>{format_number(int(car_data['china_total_rub']))} ₽</b>\n\n\n"
+            f"<i>РАСХОДЫ РОССИЯ</i>:\n\n"
+            f"Единая таможенная ставка:\n<b>{format_number(int(car_data['customs_duty_rub']))} ₽</b>\n\n"
+            f"Таможенное оформление:\n<b>{format_number(int(car_data['customs_fee_rub']))} ₽</b>\n\n"
+            f"Утилизационный сбор:\n<b>{format_number(int(car_data['util_fee_rub']))} ₽</b>\n\n"
+            f"Агентские услуги:\n<b>{format_number(car_data['agent_russia_rub'])} ₽</b>\n\n"
+            f"Брокер:\n<b>{format_number(car_data['broker_russia_rub'])} ₽</b>\n\n"
+            f"СВХ:\n<b>{format_number(car_data['svh_russia_rub'])} ₽</b>\n\n"
+            f"Лаборатория, СБКТС, ЭПТС:\n<b>{format_number(car_data['lab_russia_rub'])} ₽</b>\n\n"
+            f"<b>Доставку до вашего города уточняйте у менеджера @GetAuto_manager_bot</b>\n\n"
+            "<b>СТОИМОСТЬ ПОД КЛЮЧ АКТУАЛЬНА НА СЕГОДНЯШНИЙ ДЕНЬ, ВОЗМОЖНЫ КОЛЕБАНИЯ КУРСА НА 3-5% ОТ СТОИМОСТИ АВТО, НА МОМЕНТ ПОКУПКИ АВТОМОБИЛЯ</b>\n\n"
+        )
+
+        # Inline buttons for further actions
+        keyboard = types.InlineKeyboardMarkup()
+
+        if call.data == "detail_china_manual":
             keyboard.add(
                 types.InlineKeyboardButton(
                     "Рассчитать стоимость другого автомобиля",
