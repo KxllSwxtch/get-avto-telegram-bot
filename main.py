@@ -1622,7 +1622,7 @@ def complete_china_calculation(user_id, message):
         CHINA_AGENT_FEE + CHINA_BROKER_FEE + CHINA_SVH_FEE + CHINA_LAB_FEE
     )
 
-    total_cost_rub = first_payment_rub + china_total_rub + russia_expenses_rub
+    total_cost_rub = first_payment_rub + china_total_rub + russia_expenses_rub + 100000
     total_cost_usd = total_cost_rub / usd_rate
     total_cost_cny = total_cost_rub / cny_rub_rate
     price_usd = int(price_cny * cny_rub_rate / usd_rate)
@@ -1886,7 +1886,7 @@ def calculate_manual_china_cost(user_id):
         CHINA_AGENT_FEE + CHINA_BROKER_FEE + CHINA_SVH_FEE + CHINA_LAB_FEE
     )
 
-    total_cost_rub = first_payment_rub + china_total_rub + russia_expenses_rub
+    total_cost_rub = first_payment_rub + china_total_rub + russia_expenses_rub + 100000
     total_cost_usd = total_cost_rub / usd_rate
     total_cost_cny = total_cost_rub / cny_rub_rate
     price_usd = int(price_cny * cny_rub_rate / usd_rate)
