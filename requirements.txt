@@ -1,4 +1,5 @@
 2captcha-python==1.5.0
+deep-translator==1.11.4
 psycopg2-binary==2.9.10
 aiohappyeyeballs==2.4.3
 aiohttp==3.10.10

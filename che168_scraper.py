@@ -11,6 +11,8 @@ import requests
 import logging
 from datetime import datetime
 
+from chinese_translator import translate_car_title
+
 # Che168 API endpoints
 CHE168_API_URL = "https://apiuscdt.che168.com/apic/v2/car/getcarinfo"
 CHE168_SPECS_API_URL = "https://apiuscdt.che168.com/api/v1/car/getparamtypeitems"
@@ -309,10 +311,15 @@ def parse_che168_response(result):
     guidance_price = result.get("guidanceprice", 0)
     guidance_price_cny = int(float(guidance_price) * 10000) if guidance_price else 0
 
+    # Translate car name from Chinese to English
+    car_name_chinese = result.get("carname", "")
+    car_name_english = translate_car_title(car_name_chinese)
+
     return {
         # Basic info
         "infoid": result.get("infoid"),
-        "car_name": result.get("carname", ""),
+        "car_name": car_name_english,  # English translated name (displayed to user)
+        "car_name_original": car_name_chinese,  # Original Chinese (preserved for reference)
         "brand_name": result.get("brandname", ""),
         "series_name": result.get("seriesname", ""),
         "vin_code": result.get("vincode", ""),
