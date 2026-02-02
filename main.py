@@ -51,6 +51,25 @@ CALCULATE_CHINA_CAR_TEXT = "Расчёт по ссылке с Che168"
 MANUAL_CHINA_CAR_TEXT = "Расчёт авто из Китая вручную"
 DEALER_COMMISSION = 0.00  # 2%
 
+# All menu button texts for detection in step handlers
+MENU_BUTTON_TEXTS = [
+    CALCULATE_CAR_TEXT,           # "Расчёт по ссылке с Encar"
+    MANUAL_CAR_TEXT,              # "Расчёт стоимости вручную"
+    CALCULATE_CHINA_CAR_TEXT,     # "Расчёт по ссылке с Che168"
+    MANUAL_CHINA_CAR_TEXT,        # "Расчёт авто из Китая вручную"
+    "Написать менеджеру",
+    "Написать в WhatsApp",
+    "Почему стоит выбрать нас?",
+    "Мы в соц. сетях",
+    "Оформить кредит",
+    "О нас",
+]
+
+
+def is_menu_button(text):
+    """Check if text matches any menu button."""
+    return text in MENU_BUTTON_TEXTS
+
 # China constants
 CHINA_DEPOSIT = 5000           # ¥5,000 задаток
 CHINA_EXPERT_REPORT = 1600     # ¥1,600 отчет эксперта
@@ -1734,6 +1753,11 @@ def process_china_manual_month(message):
     user_id = message.chat.id
     user_input = message.text.strip()
 
+    # Check if user clicked a menu button
+    if is_menu_button(user_input):
+        handle_message(message)
+        return
+
     # Validate month
     if not user_input.isdigit() or not (1 <= int(user_input) <= 12):
         bot.send_message(user_id, "Пожалуйста, введите корректный месяц (от 1 до 12):")
@@ -1752,6 +1776,11 @@ def process_china_manual_year(message):
     user_id = message.chat.id
     user_input = message.text.strip()
 
+    # Check if user clicked a menu button
+    if is_menu_button(user_input):
+        handle_message(message)
+        return
+
     # Validate year
     current_year = datetime.datetime.now().year
     if not user_input.isdigit() or not (2010 <= int(user_input) <= current_year):
@@ -1769,7 +1798,14 @@ def process_china_manual_engine(message):
     global user_manual_china_input
 
     user_id = message.chat.id
-    user_input = message.text.strip().replace(",", ".")
+    user_input = message.text.strip()
+
+    # Check if user clicked a menu button
+    if is_menu_button(user_input):
+        handle_message(message)
+        return
+
+    user_input = user_input.replace(",", ".")
 
     try:
         engine_liters = float(user_input)
@@ -1791,7 +1827,14 @@ def process_china_manual_price(message):
     global user_manual_china_input
 
     user_id = message.chat.id
-    user_input = message.text.strip().replace(" ", "").replace(",", "")
+    user_input = message.text.strip()
+
+    # Check if user clicked a menu button
+    if is_menu_button(user_input):
+        handle_message(message)
+        return
+
+    user_input = user_input.replace(" ", "").replace(",", "")
 
     try:
         price_cny = int(user_input)
@@ -1813,6 +1856,11 @@ def process_china_manual_hp(message):
 
     user_id = message.chat.id
     user_input = message.text.strip()
+
+    # Check if user clicked a menu button
+    if is_menu_button(user_input):
+        handle_message(message)
+        return
 
     if not user_input.isdigit() or not (50 <= int(user_input) <= 1000):
         bot.send_message(user_id, "Пожалуйста, введите корректное значение мощности (от 50 до 1000 л.с.):")
@@ -2443,6 +2491,11 @@ def process_credit_full_name(message):
     user_id = message.chat.id
     full_name = message.text.strip()
 
+    # Check if user clicked a menu button instead of typing
+    if is_menu_button(full_name):
+        handle_message(message)
+        return
+
     # Проверяем, что ФИО содержит хотя бы 2 слова
     if len(full_name.split()) < 2:
         bot.send_message(user_id, "❌ Введите корректное ФИО (Фамилия Имя Отчество):")
@@ -2457,6 +2510,11 @@ def process_credit_full_name(message):
 def process_credit_phone(message, full_name):
     user_id = message.chat.id
     phone_number = message.text.strip()
+
+    # Check if user clicked a menu button instead of typing
+    if is_menu_button(phone_number):
+        handle_message(message)
+        return
 
     # Проверка номера телефона
     if not re.match(r"^\+?\d{10,15}$", phone_number):
@@ -2498,15 +2556,8 @@ def process_manual_month(message):
     user_id = message.chat.id
     user_input = message.text.strip()
 
-    # Проверяем, если пользователь нажал кнопку, а не ввёл число
-    if user_input in [
-        CALCULATE_CAR_TEXT,
-        MANUAL_CAR_TEXT,
-        "Написать менеджеру",
-        "О нас",
-        "Мы в соц. сетях",
-        "Написать в WhatsApp",
-    ]:
+    # Check if user clicked a menu button
+    if is_menu_button(user_input):
         handle_message(message)  # Передаём управление стандартному обработчику команд
         return  # Завершаем обработку ввода месяца
 
@@ -2529,6 +2580,11 @@ def process_manual_year(message):
     user_id = message.chat.id
     user_input = message.text.strip()
 
+    # Check if user clicked a menu button
+    if is_menu_button(user_input):
+        handle_message(message)
+        return
+
     if not user_input.isdigit() or not (
         1980 <= int(user_input) <= datetime.datetime.now().year
     ):
@@ -2547,6 +2603,11 @@ def process_manual_year(message):
 def process_manual_engine(message):
     user_id = message.chat.id
     user_input = message.text.strip()
+
+    # Check if user clicked a menu button
+    if is_menu_button(user_input):
+        handle_message(message)
+        return
 
     if not user_input.isdigit() or not (500 <= int(user_input) <= 10000):
         bot.send_message(
@@ -2569,6 +2630,11 @@ def process_manual_horsepower(message):
     user_id = message.chat.id
     user_input = message.text.strip()
 
+    # Check if user clicked a menu button
+    if is_menu_button(user_input):
+        handle_message(message)
+        return
+
     if not user_input.isdigit() or not (50 <= int(user_input) <= 1000):
         bot.send_message(
             user_id,
@@ -2589,6 +2655,11 @@ def process_manual_horsepower(message):
 def process_manual_price(message):
     user_id = message.chat.id
     user_input = message.text.strip()
+
+    # Check if user clicked a menu button
+    if is_menu_button(user_input):
+        handle_message(message)
+        return
 
     if not user_input.isdigit() or not (1000000 <= int(user_input) <= 1000000000000):
         bot.send_message(
