@@ -468,10 +468,10 @@ def process_broadcast(message):
     bot.send_message(message.chat.id, f"📢 Начинаю рассылку...\n\n{text}")
 
     # Запускаем рассылку
-    send_broadcast(text)
+    send_broadcast(text, message.chat.id)
 
 
-def send_broadcast(text):
+def send_broadcast(text, admin_chat_id):
     """Функция отправки рассылки всем пользователям из базы"""
     try:
         conn = psycopg2.connect(DATABASE_URL, sslmode="require")
@@ -495,10 +495,10 @@ def send_broadcast(text):
                 print(f"Ошибка отправки пользователю {user_id}: {e}")
 
         bot.send_message(
-            message.chat.id, f"✅ Рассылка завершена! Отправлено {count} сообщений."
+            admin_chat_id, f"✅ Рассылка завершена! Отправлено {count} сообщений."
         )
     except Exception as e:
-        bot.send_message(message.chat.id, "❌ Ошибка при отправке рассылки.")
+        bot.send_message(admin_chat_id, "❌ Ошибка при отправке рассылки.")
         print(f"Ошибка рассылки: {e}")
     finally:
         cursor.close()
