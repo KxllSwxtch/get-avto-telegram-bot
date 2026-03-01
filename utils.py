@@ -248,6 +248,31 @@ def calculate_age(year, month):
         return "7-0"
 
 
+PASSABLE_AGE_THRESHOLD_MONTHS = 3
+
+
+def months_until_passable(year, month):
+    """
+    Проверяет, станет ли автомобиль "проходным" (3-5 лет) в ближайшие N месяцев.
+
+    :param year: Год выпуска автомобиля
+    :param month: Месяц выпуска автомобиля
+    :return: Количество оставшихся месяцев до 36 мес. или None
+    """
+    month = int(month.lstrip("0")) if isinstance(month, str) else int(month)
+
+    current_date = datetime.datetime.now()
+    car_date = datetime.datetime(year=int(year), month=month, day=1)
+
+    age_in_months = (
+        (current_date.year - car_date.year) * 12 + current_date.month - car_date.month
+    )
+
+    if age_in_months < 36 and (36 - age_in_months) <= PASSABLE_AGE_THRESHOLD_MONTHS:
+        return 36 - age_in_months
+    return None
+
+
 def format_number(number):
     return locale.format_string("%d", number, grouping=True)
 

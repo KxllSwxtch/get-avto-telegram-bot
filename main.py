@@ -29,6 +29,8 @@ from che168_scraper import (
 from utils import (
     clear_memory,
     calculate_age,
+    months_until_passable,
+    PASSABLE_AGE_THRESHOLD_MONTHS,
     format_number,
     get_customs_fees,
     clean_number,
@@ -146,6 +148,9 @@ user_manual_china_input = {}
 
 # Pending HP requests for China cars
 pending_china_hp_requests = {}
+
+# Storage for passable (проходная) recalculation data
+pending_passable_data = {}  # user_id -> {lowCosts values + car params for recalc}
 
 
 def create_fuel_type_keyboard():
@@ -755,6 +760,24 @@ def get_car_info(url):
     ]
 
 
+def format_age_with_passable_hint(age, age_formatted, year, month):
+    """
+    Adds a hint to age text when a car is close to becoming "проходная" (3-5 years).
+
+    :param age: Age category string ("0-3", "3-5", etc.)
+    :param age_formatted: Human-readable age string
+    :param year: Car manufacturing year
+    :param month: Car manufacturing month
+    :return: (display_text, months_remaining_or_None)
+    """
+    if age == "0-3":
+        remaining = months_until_passable(year, month)
+        if remaining is not None:
+            hint = f"{age_formatted} ⏳ через {remaining} мес. станет проходным"
+            return hint, remaining
+    return age_formatted, None
+
+
 # Function to calculate the total cost
 def calculate_cost(link, message):
     global car_data, car_id_external, car_month, car_year, krw_rub_rate, eur_rub_rate, rub_to_krw_rate
@@ -865,6 +888,7 @@ def calculate_cost(link, message):
             "car_title": car_title,
             "manufacturer": manufacturer_from_pan,
             "model": model_from_pan,
+            "pan_auto_data": pan_auto_data,
         }
 
         # Ask user for HP
@@ -936,6 +960,32 @@ def calculate_cost_with_pan_auto(pan_auto_data, car_id, message):
         else ("от 3 до 5 лет" if age == "3-5"
         else "от 5 до 7 лет" if age == "5-7" else "от 7 лет")
     )
+
+    # Check if car is close to becoming "проходная"
+    age_display, months_remaining = format_age_with_passable_hint(age, age_formatted, year, month)
+
+    # Extract lowCosts for passable recalculation
+    low_costs_rub = pan_auto_data.get("lowCosts", {}).get("RUB", {})
+    low_customs_duty = low_costs_rub.get("customsDuty", 0)
+    low_customs_fee = low_costs_rub.get("clearanceCost", 0)
+    low_recycling_fee = low_costs_rub.get("utilizationFee", 0)
+    has_valid_low_costs = low_customs_duty > 0
+
+    # Store passable recalculation data if within threshold and lowCosts available
+    if months_remaining is not None and has_valid_low_costs:
+        pending_passable_data[user_id] = {
+            "low_customs_duty": low_customs_duty,
+            "low_customs_fee": low_customs_fee,
+            "low_recycling_fee": low_recycling_fee,
+            "price_krw": price_krw,
+            "car_title": car_title,
+            "engine_volume": engine_volume,
+            "hp": hp,
+            "formatted_mileage": formatted_mileage if mileage else "Н/Д",
+            "car_id": car_id,
+            "year": year,
+            "month": month,
+        }
 
     price_usd = price_krw * krw_rub_rate / usd_rate
     engine_volume_formatted = f"{format_number(int(engine_volume))} cc"
@@ -1049,7 +1099,7 @@ def calculate_cost_with_pan_auto(pan_auto_data, car_id, message):
     # Build result message
     result_message = (
         f"{car_title}\n\n"
-        f"Возраст: {age_formatted} (дата регистрации: {month}/{year})\n"
+        f"Возраст: {age_display} (дата регистрации: {month}/{year})\n"
         f"Пробег: {formatted_mileage}\n"
         f"Стоимость автомобиля в Корее: ₩{format_number(price_krw)} | ${format_number(price_usd)}\n"
         f"Объём двигателя: {engine_volume_formatted}\n"
@@ -1066,6 +1116,13 @@ def calculate_cost_with_pan_auto(pan_auto_data, car_id, message):
     keyboard.add(
         types.InlineKeyboardButton("Детали расчёта", callback_data="detail")
     )
+    if months_remaining is not None and has_valid_low_costs:
+        keyboard.add(
+            types.InlineKeyboardButton(
+                "Посчитать как проходную",
+                callback_data="calc_passable",
+            )
+        )
     keyboard.add(
         types.InlineKeyboardButton(
             "Выплаты по ДТП",
@@ -1251,6 +1308,36 @@ def complete_url_calculation(user_id, message):
         else "от 5 до 7 лет" if age == "5-7" else "от 7 лет")
     )
 
+    # Check if car is close to becoming "проходная"
+    age_display, months_remaining = format_age_with_passable_hint(age, age_formatted, full_year, month)
+
+    # Check for lowCosts from pan-auto data (stored earlier in pending_hp_requests)
+    stored_pan_auto_data = pending_data.get("pan_auto_data")
+    low_costs_rub = {}
+    has_valid_low_costs = False
+    if stored_pan_auto_data:
+        low_costs_rub = stored_pan_auto_data.get("lowCosts", {}).get("RUB", {})
+        low_customs_duty = low_costs_rub.get("customsDuty", 0)
+        low_customs_fee = low_costs_rub.get("clearanceCost", 0)
+        low_recycling_fee = low_costs_rub.get("utilizationFee", 0)
+        has_valid_low_costs = low_customs_duty > 0
+
+    # Store passable recalculation data if within threshold and lowCosts available
+    if months_remaining is not None and has_valid_low_costs:
+        pending_passable_data[user_id] = {
+            "low_customs_duty": low_customs_duty,
+            "low_customs_fee": low_customs_fee,
+            "low_recycling_fee": low_recycling_fee,
+            "price_krw": price_krw,
+            "car_title": car_title,
+            "engine_volume": car_engine_displacement,
+            "hp": hp,
+            "formatted_mileage": formatted_mileage,
+            "car_id": car_id,
+            "year": full_year,
+            "month": month,
+        }
+
     price_usd = price_krw * krw_rub_rate / usd_rate
     engine_volume_formatted = f"{format_number(car_engine_displacement)} cc"
 
@@ -1365,7 +1452,7 @@ def complete_url_calculation(user_id, message):
     # Build result message
     result_message = (
         f"{car_title}\n\n"
-        f"Возраст: {age_formatted} (дата регистрации: {month}/{year})\n"
+        f"Возраст: {age_display} (дата регистрации: {month}/{year})\n"
         f"Пробег: {formatted_mileage}\n"
         f"Стоимость автомобиля в Корее: ₩{format_number(price_krw)} | ${format_number(price_usd)}\n"
         f"Объём двигателя: {engine_volume_formatted}\n"
@@ -1383,6 +1470,13 @@ def complete_url_calculation(user_id, message):
     keyboard.add(
         types.InlineKeyboardButton("Детали расчёта", callback_data="detail")
     )
+    if months_remaining is not None and has_valid_low_costs:
+        keyboard.add(
+            types.InlineKeyboardButton(
+                "Посчитать как проходную",
+                callback_data="calc_passable",
+            )
+        )
     keyboard.add(
         types.InlineKeyboardButton(
             "Выплаты по ДТП",
@@ -2130,6 +2224,116 @@ def handle_callback_query(call):
             bot.answer_callback_query(call.id, "Ошибка: данные не найдены")
         return
 
+    elif call.data == "calc_passable":
+        # Recalculate cost as if the car were "проходная" (3-5 years) using lowCosts
+        user_id = call.message.chat.id
+        passable_data = pending_passable_data.pop(user_id, None)
+
+        if not passable_data:
+            bot.answer_callback_query(call.id, "Данные не найдены. Попробуйте рассчитать заново.")
+            return
+
+        bot.answer_callback_query(call.id)
+
+        # Extract lowCosts customs values
+        low_customs_duty = passable_data["low_customs_duty"]
+        low_customs_fee = passable_data["low_customs_fee"]
+        low_recycling_fee = passable_data["low_recycling_fee"]
+        price_krw = passable_data["price_krw"]
+        car_title = passable_data["car_title"]
+        engine_volume = passable_data["engine_volume"]
+        hp = passable_data["hp"]
+        p_formatted_mileage = passable_data["formatted_mileage"]
+        car_id = passable_data["car_id"]
+        p_year = passable_data["year"]
+        p_month = passable_data["month"]
+
+        engine_volume_formatted = f"{format_number(int(engine_volume))} cc"
+        price_usd = price_krw * krw_rub_rate / usd_rate
+
+        # Recalculate total cost with lowCosts customs values
+        total_cost = (
+            (price_krw * krw_rub_rate)
+            + (440000 * krw_rub_rate)
+            + (100000 * krw_rub_rate)
+            + (350000 * krw_rub_rate)
+            + (600 * usd_rate)
+            + low_customs_duty
+            + low_customs_fee
+            + low_recycling_fee
+            + (461 * usd_rate)
+            + 50000
+            + 30000
+            + 8000
+        )
+
+        total_cost_usd = total_cost / usd_rate
+        total_cost_krw = total_cost / krw_rub_rate
+
+        # Recalculate broker fee with lowCosts values
+        broker_rub = ((low_customs_duty + low_customs_fee + low_recycling_fee) / 100) * 1.5 + 30000
+
+        # Update car_data for "Детали расчёта"
+        car_data["customs_duty_usd"] = low_customs_duty / usd_rate
+        car_data["customs_duty_krw"] = low_customs_duty * rub_to_krw_rate
+        car_data["customs_duty_rub"] = low_customs_duty
+
+        car_data["customs_fee_usd"] = low_customs_fee / usd_rate
+        car_data["customs_fee_krw"] = low_customs_fee / krw_rub_rate
+        car_data["customs_fee_rub"] = low_customs_fee
+
+        car_data["util_fee_usd"] = low_recycling_fee / usd_rate
+        car_data["util_fee_krw"] = low_recycling_fee / krw_rub_rate
+        car_data["util_fee_rub"] = low_recycling_fee
+
+        car_data["broker_russia_usd"] = broker_rub / usd_rate
+        car_data["broker_russia_krw"] = broker_rub * rub_to_krw_rate
+        car_data["broker_russia_rub"] = broker_rub
+
+        preview_link = f"https://fem.encar.com/cars/detail/{car_id}"
+
+        # Build result message with passable header
+        result_message = (
+            f"⏳ <b>РАСЧЁТ КАК ПРОХОДНАЯ (от 3 до 5 лет)</b>\n\n"
+            f"{car_title}\n\n"
+            f"Возраст: от 3 до 5 лет (дата регистрации: {p_month}/{p_year})\n"
+            f"Пробег: {p_formatted_mileage}\n"
+            f"Стоимость автомобиля в Корее: ₩{format_number(price_krw)} | ${format_number(price_usd)}\n"
+            f"Объём двигателя: {engine_volume_formatted}\n"
+            f"Мощность: {hp} л.с.\n"
+            f"🟰 <b>Стоимость под ключ до Владивостока</b>:\n<b>${format_number(total_cost_usd)}</b> | <b>₩{format_number(total_cost_krw)}</b> | <b>{format_number(total_cost)} ₽</b>\n\n"
+            f"‼️ <b>Доставку до вашего города уточняйте у менеджера @GetAuto_manager_bot</b>\n\n"
+            f"Стоимость под ключ актуальна на сегодняшний день, возможны колебания курса на 3-5% от стоимости авто, на момент покупки автомобиля\n\n"
+            f"🔗 <a href='{preview_link}'>Ссылка на автомобиль</a>\n\n"
+            f"🔗 <a href='https://t.me/Getauto_kor'>Официальный телеграм канал</a>\n"
+        )
+
+        # Keyboard
+        keyboard = types.InlineKeyboardMarkup()
+        keyboard.add(
+            types.InlineKeyboardButton("Детали расчёта", callback_data="detail")
+        )
+        keyboard.add(
+            types.InlineKeyboardButton(
+                "Расчёт другого автомобиля",
+                callback_data="calculate_another",
+            )
+        )
+        keyboard.add(
+            types.InlineKeyboardButton(
+                "Написать менеджеру", url="https://t.me/GetAuto_manager_bot"
+            )
+        )
+
+        # Send as a new message (not edit)
+        bot.send_message(
+            call.message.chat.id,
+            result_message,
+            parse_mode="HTML",
+            reply_markup=keyboard,
+        )
+        return
+
     elif call.data.startswith("detail_china"):
         # Detail view for Chinese car calculations
         print_message("[ЗАПРОС] ДЕТАЛИЗАЦИЯ РАСЧËТА (КИТАЙ)")
@@ -2707,6 +2911,9 @@ def calculate_manual_cost(user_id):
         )
     )
 
+    # Check if car is close to becoming "проходная" (text hint only for manual calc)
+    age_display, _ = format_age_with_passable_hint(age, age_formatted, year, month)
+
     # Конвертируем стоимость авто в рубли
     price_krw = int(price_krw)
 
@@ -2838,7 +3045,7 @@ def calculate_manual_cost(user_id):
 
     # Формирование сообщения
     result_message = (
-        f"Возраст: {age_formatted}\n"
+        f"Возраст: {age_display}\n"
         f"Стоимость автомобиля в Корее: ₩{format_number(price_krw)}\n"
         f"Объём двигателя: {engine_volume_formatted}\n"
         f"Тип двигателя: {fuel_type_name}\n\n"
