@@ -824,10 +824,10 @@ def calculate_cost(link, message):
 
     # Check if pan-auto.ru has valid data (both customs AND HP must be valid)
     if pan_auto_data:
-        costs_rub = pan_auto_data.get("costs", {}).get("RUB", {})
+        costs_rub = (pan_auto_data.get("costs") or {}).get("RUB", {})
         hp = pan_auto_data.get("hp")
-        manufacturer_from_pan = pan_auto_data.get("manufacturer", {}).get("translation", "")
-        model_from_pan = pan_auto_data.get("model", {}).get("translation", "")
+        manufacturer_from_pan = (pan_auto_data.get("manufacturer") or {}).get("translation", "")
+        model_from_pan = (pan_auto_data.get("model") or {}).get("translation", "")
 
         if costs_rub and is_valid_hp(hp) and has_valid_customs(costs_rub):
             # Pan-auto.ru has this car with valid data - use their pre-calculated customs
@@ -914,13 +914,13 @@ def calculate_cost_with_pan_auto(pan_auto_data, car_id, message):
     user_id = message.chat.id
 
     # Extract data from pan-auto.ru response
-    costs_rub = pan_auto_data.get("costs", {}).get("RUB", {})
+    costs_rub = (pan_auto_data.get("costs") or {}).get("RUB", {})
 
     customs_duty, customs_fee, recycling_fee, price_krw_from_api = extract_pan_auto_costs(costs_rub)
 
     hp = pan_auto_data.get("hp", 0)
-    manufacturer = pan_auto_data.get("manufacturer", {}).get("translation", "")
-    model = pan_auto_data.get("model", {}).get("translation", "")
+    manufacturer = (pan_auto_data.get("manufacturer") or {}).get("translation", "")
+    model = (pan_auto_data.get("model") or {}).get("translation", "")
     engine_volume = pan_auto_data.get("displacement", 0)
 
     year, month = parse_pan_auto_year_month(pan_auto_data)
@@ -951,7 +951,7 @@ def calculate_cost_with_pan_auto(pan_auto_data, car_id, message):
     age_display, months_remaining = format_age_with_passable_hint(age, age_formatted, year, month)
 
     # Extract lowCosts for passable recalculation
-    low_costs_rub = pan_auto_data.get("lowCosts", {}).get("RUB", {})
+    low_costs_rub = (pan_auto_data.get("lowCosts") or {}).get("RUB", {})
     low_customs_duty, low_customs_fee, low_recycling_fee, _ = extract_pan_auto_costs(low_costs_rub)
     has_valid_low_costs = low_customs_duty > 0
 
@@ -1300,7 +1300,7 @@ def complete_url_calculation(user_id, message):
     low_costs_rub = {}
     has_valid_low_costs = False
     if stored_pan_auto_data:
-        low_costs_rub = stored_pan_auto_data.get("lowCosts", {}).get("RUB", {})
+        low_costs_rub = (stored_pan_auto_data.get("lowCosts") or {}).get("RUB", {})
         low_customs_duty, low_customs_fee, low_recycling_fee, _ = extract_pan_auto_costs(low_costs_rub)
         has_valid_low_costs = low_customs_duty > 0
 
