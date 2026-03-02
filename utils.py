@@ -273,6 +273,67 @@ def months_until_passable(year, month):
     return None
 
 
+RUSSIAN_MONTHS = {
+    "Январь": "01", "Февраль": "02", "Март": "03", "Апрель": "04",
+    "Май": "05", "Июнь": "06", "Июль": "07", "Август": "08",
+    "Сентябрь": "09", "Октябрь": "10", "Ноябрь": "11", "Декабрь": "12",
+}
+
+
+def extract_pan_auto_costs(costs_rub):
+    """
+    Извлекает таможенные платежи из ответа pan-auto.ru API,
+    обрабатывая как старые, так и новые имена полей.
+
+    :param costs_rub: dict из costs.RUB или lowCosts.RUB
+    :return: (customs_duty, clearance_cost, recycling_fee, car_price)
+    """
+    if not costs_rub:
+        return (0, 0, 0, 0)
+
+    customs_duty = costs_rub.get("customsDuty", 0)
+    recycling_fee = costs_rub.get("utilizationFee", 0) or costs_rub.get("pizdec", 0)
+    clearance_cost = costs_rub.get("clearanceCost", 0)
+    if not clearance_cost:
+        total_fees = costs_rub.get("totalFees", 0)
+        if total_fees and customs_duty:
+            clearance_cost = total_fees - customs_duty - recycling_fee
+            if clearance_cost < 0:
+                clearance_cost = 0
+    car_price = costs_rub.get("carPriceEncar", 0) or costs_rub.get("carPrice", 0)
+
+    return (customs_duty, clearance_cost, recycling_fee, car_price)
+
+
+def parse_pan_auto_year_month(pan_auto_data):
+    """
+    Извлекает год и месяц из данных pan-auto.ru API.
+
+    formYear может быть "202406" (YYYYMM) или "2023" (YYYY).
+    Если месяц не указан в formYear, пытается извлечь из поля year ("Июнь, 2023 год").
+
+    :param pan_auto_data: dict ответа pan-auto.ru API
+    :return: (year: int, month: str)  — month в формате "01"-"12"
+    """
+    form_year = str(pan_auto_data.get("formYear", ""))
+    year_field = str(pan_auto_data.get("year", ""))
+
+    year = 0
+    month = "01"
+
+    if form_year and len(form_year) >= 6:
+        year = int(form_year[:4])
+        month = form_year[4:6]
+    elif form_year and len(form_year) >= 4:
+        year = int(form_year[:4])
+        # Try to extract month from the "year" field (e.g., "Июнь, 2023 год")
+        for rus_month, num in RUSSIAN_MONTHS.items():
+            if rus_month in year_field:
+                month = num
+                break
+    return (year, month)
+
+
 def format_number(number):
     return locale.format_string("%d", number, grouping=True)
 

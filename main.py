@@ -38,6 +38,8 @@ from utils import (
     generate_encar_photo_url,
     get_pan_auto_car_data,
     sort_photo_urls,
+    extract_pan_auto_costs,
+    parse_pan_auto_year_month,
     FUEL_TYPE_GASOLINE,
     FUEL_TYPE_DIESEL,
     FUEL_TYPE_ELECTRIC,
@@ -235,8 +237,7 @@ def has_valid_customs(costs_rub):
     """Check if customs values from pan-auto.ru are valid"""
     if not costs_rub:
         return False
-    customs_duty = costs_rub.get("customsDuty", 0)
-    recycling_fee = costs_rub.get("utilizationFee", 0)
+    customs_duty, _, recycling_fee, _ = extract_pan_auto_costs(costs_rub)
     # At least customs duty and recycling fee should be positive
     return customs_duty > 0 and recycling_fee > 0
 
@@ -915,31 +916,16 @@ def calculate_cost_with_pan_auto(pan_auto_data, car_id, message):
     # Extract data from pan-auto.ru response
     costs_rub = pan_auto_data.get("costs", {}).get("RUB", {})
 
-    customs_fee = costs_rub.get("clearanceCost", 0)  # sbor
-    customs_duty = costs_rub.get("customsDuty", 0)    # tax
-    recycling_fee = costs_rub.get("utilizationFee", 0)  # util
+    customs_duty, customs_fee, recycling_fee, price_krw_from_api = extract_pan_auto_costs(costs_rub)
 
     hp = pan_auto_data.get("hp", 0)
     manufacturer = pan_auto_data.get("manufacturer", {}).get("translation", "")
     model = pan_auto_data.get("model", {}).get("translation", "")
     engine_volume = pan_auto_data.get("displacement", 0)
 
-    # Extract year and month from formYear (can be "2024" or "202401" format)
-    form_year = pan_auto_data.get("formYear", "")
-    if form_year and len(form_year) >= 6:
-        # Format: YYYYMM (e.g., "202401")
-        year = int(form_year[:4])
-        month = form_year[4:6]
-    elif form_year and len(form_year) >= 4:
-        # Format: YYYY only (e.g., "2024")
-        year = int(form_year[:4])
-        month = "01"  # Default to January
-    else:
-        year = 0
-        month = "01"
+    year, month = parse_pan_auto_year_month(pan_auto_data)
 
-    # Get car price from costs.RUB.carPriceEncar (this is the KRW price)
-    price_krw = costs_rub.get("carPriceEncar", 0)
+    price_krw = price_krw_from_api
     mileage = pan_auto_data.get("mileage", 0)
 
     # Store vehicle info for insurance lookup
@@ -966,10 +952,12 @@ def calculate_cost_with_pan_auto(pan_auto_data, car_id, message):
 
     # Extract lowCosts for passable recalculation
     low_costs_rub = pan_auto_data.get("lowCosts", {}).get("RUB", {})
-    low_customs_duty = low_costs_rub.get("customsDuty", 0)
-    low_customs_fee = low_costs_rub.get("clearanceCost", 0)
-    low_recycling_fee = low_costs_rub.get("utilizationFee", 0)
+    low_customs_duty, low_customs_fee, low_recycling_fee, _ = extract_pan_auto_costs(low_costs_rub)
     has_valid_low_costs = low_customs_duty > 0
+
+    price_usd = price_krw * krw_rub_rate / usd_rate
+    engine_volume_formatted = f"{format_number(int(engine_volume))} cc"
+    formatted_mileage = f"{format_number(mileage)} км" if mileage else "Н/Д"
 
     # Store passable recalculation data if within threshold and lowCosts available
     if months_remaining is not None and has_valid_low_costs:
@@ -981,15 +969,11 @@ def calculate_cost_with_pan_auto(pan_auto_data, car_id, message):
             "car_title": car_title,
             "engine_volume": engine_volume,
             "hp": hp,
-            "formatted_mileage": formatted_mileage if mileage else "Н/Д",
+            "formatted_mileage": formatted_mileage,
             "car_id": car_id,
             "year": year,
             "month": month,
         }
-
-    price_usd = price_krw * krw_rub_rate / usd_rate
-    engine_volume_formatted = f"{format_number(int(engine_volume))} cc"
-    formatted_mileage = f"{format_number(mileage)} км" if mileage else "Н/Д"
 
     # Calculate total cost
     total_cost = (
@@ -1317,9 +1301,7 @@ def complete_url_calculation(user_id, message):
     has_valid_low_costs = False
     if stored_pan_auto_data:
         low_costs_rub = stored_pan_auto_data.get("lowCosts", {}).get("RUB", {})
-        low_customs_duty = low_costs_rub.get("customsDuty", 0)
-        low_customs_fee = low_costs_rub.get("clearanceCost", 0)
-        low_recycling_fee = low_costs_rub.get("utilizationFee", 0)
+        low_customs_duty, low_customs_fee, low_recycling_fee, _ = extract_pan_auto_costs(low_costs_rub)
         has_valid_low_costs = low_customs_duty > 0
 
     # Store passable recalculation data if within threshold and lowCosts available
