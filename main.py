@@ -65,7 +65,6 @@ MENU_BUTTON_TEXTS = [
     "Написать в WhatsApp",
     "Почему стоит выбрать нас?",
     "Мы в соц. сетях",
-    "Оформить кредит",
     "О нас",
 ]
 
@@ -622,9 +621,6 @@ def main_menu():
     keyboard.add(
         types.KeyboardButton("Мы в соц. сетях"),
         types.KeyboardButton("Написать в WhatsApp"),
-    )
-    keyboard.add(
-        types.KeyboardButton("Оформить кредит"),
     )
     return keyboard
 
@@ -2659,79 +2655,11 @@ def handle_message(message):
 
         bot.send_message(message.chat.id, message_text)
 
-    elif user_message == "Оформить кредит":
-        bot.send_message(message.chat.id, "Введите ваше ФИО (Фамилия Имя Отчество):")
-        bot.register_next_step_handler(message, process_credit_full_name)
-
     else:
         bot.send_message(
             message.chat.id,
             "Пожалуйста, введите корректную ссылку на автомобиль с сайта encar.com (Корея) или che168.com (Китай).",
         )
-
-
-#######################
-# Для обработки заявки на кредит #
-#######################
-def process_credit_full_name(message):
-    user_id = message.chat.id
-    full_name = message.text.strip()
-
-    # Check if user clicked a menu button instead of typing
-    if is_menu_button(full_name):
-        handle_message(message)
-        return
-
-    # Проверяем, что ФИО содержит хотя бы 2 слова
-    if len(full_name.split()) < 2:
-        bot.send_message(user_id, "❌ Введите корректное ФИО (Фамилия Имя Отчество):")
-        bot.register_next_step_handler(message, process_credit_full_name)
-        return
-
-    # Сохраняем в переменную и переходим к номеру телефона
-    bot.send_message(user_id, "Введите ваш номер телефона:")
-    bot.register_next_step_handler(message, process_credit_phone, full_name)
-
-
-def process_credit_phone(message, full_name):
-    user_id = message.chat.id
-    phone_number = message.text.strip()
-
-    # Check if user clicked a menu button instead of typing
-    if is_menu_button(phone_number):
-        handle_message(message)
-        return
-
-    # Проверка номера телефона
-    if not re.match(r"^\+?\d{10,15}$", phone_number):
-        bot.send_message(user_id, "❌ Введите корректный номер телефона:")
-        bot.register_next_step_handler(message, process_credit_phone, full_name)
-        return
-
-    # Сохраняем заявку в базу данных
-    save_credit_application(user_id, full_name, phone_number)
-
-    bot.send_message(
-        user_id, "✅ Ваша заявка на кредит успешно отправлена! Мы с вами свяжемся."
-    )
-
-
-def save_credit_application(user_id, full_name, phone_number):
-    conn = psycopg2.connect(DATABASE_URL, sslmode="require")
-    cursor = conn.cursor()
-
-    cursor.execute(
-        """
-        INSERT INTO credit_applications (user_id, full_name, phone_number)
-        VALUES (%s, %s, %s)
-        """,
-        (user_id, full_name, phone_number),
-    )
-
-    conn.commit()
-    cursor.close()
-    conn.close()
-    print("✅ Заявка на кредит сохранена в базе данных")
 
 
 #######################
