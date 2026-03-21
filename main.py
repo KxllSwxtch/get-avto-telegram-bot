@@ -987,9 +987,6 @@ def calculate_cost_with_pan_auto(pan_auto_data, car_id, message):
         + 8000
     )
 
-    total_cost_usd = total_cost / usd_rate
-    total_cost_krw = total_cost / krw_rub_rate
-
     # Store car_data for detail view
     car_data["agent_korea_rub"] = 50000
     car_data["agent_korea_usd"] = 50000 / usd_rate
@@ -1084,7 +1081,7 @@ def calculate_cost_with_pan_auto(pan_auto_data, car_id, message):
         f"Стоимость автомобиля в Корее: ₩{format_number(price_krw)} | ${format_number(price_usd)}\n"
         f"Объём двигателя: {engine_volume_formatted}\n"
         f"Мощность: {hp} л.с.\n"
-        f"🟰 <b>Стоимость под ключ до Владивостока</b>:\n<b>${format_number(total_cost_usd)}</b> | <b>₩{format_number(total_cost_krw)}</b> | <b>{format_number(total_cost)} ₽</b>\n\n"
+        f"🟰 <b>Стоимость под ключ до Владивостока</b>:\n<b>{format_number(total_cost)} ₽</b>\n\n"
         f"‼️ <b>Доставку до вашего города уточняйте у менеджера @GetAuto_manager_bot</b>\n\n"
         f"Стоимость под ключ актуальна на сегодняшний день, возможны колебания курса на 3-5% от стоимости авто, на момент покупки автомобиля\n\n"
         f"🔗 <a href='{preview_link}'>Ссылка на автомобиль</a>\n\n"
@@ -1335,9 +1332,6 @@ def complete_url_calculation(user_id, message):
         + 8000
     )
 
-    total_cost_usd = total_cost / usd_rate
-    total_cost_krw = total_cost / krw_rub_rate
-
     # Store car_data for detail view
     car_data["agent_korea_rub"] = 50000
     car_data["agent_korea_usd"] = 50000 / usd_rate
@@ -1436,7 +1430,7 @@ def complete_url_calculation(user_id, message):
         f"Объём двигателя: {engine_volume_formatted}\n"
         f"Мощность: {hp} л.с.\n"
         f"Тип двигателя: {fuel_type_name}\n"
-        f"🟰 <b>Стоимость под ключ до Владивостока</b>:\n<b>${format_number(total_cost_usd)}</b> | <b>₩{format_number(total_cost_krw)}</b> | <b>{format_number(total_cost)} ₽</b>\n\n"
+        f"🟰 <b>Стоимость под ключ до Владивостока</b>:\n<b>{format_number(total_cost)} ₽</b>\n\n"
         f"‼️ <b>Доставку до вашего города уточняйте у менеджера @GetAuto_manager_bot</b>\n\n"
         f"Стоимость под ключ актуальна на сегодняшний день, возможны колебания курса на 3-5% от стоимости авто, на момент покупки автомобиля\n\n"
         f"🔗 <a href='{preview_link}'>Ссылка на автомобиль</a>\n\n"
@@ -2245,9 +2239,6 @@ def handle_callback_query(call):
             + 8000
         )
 
-        total_cost_usd = total_cost / usd_rate
-        total_cost_krw = total_cost / krw_rub_rate
-
         # Recalculate broker fee with lowCosts values
         broker_rub = ((low_customs_duty + low_customs_fee + low_recycling_fee) / 100) * 1.5 + 30000
 
@@ -2279,7 +2270,7 @@ def handle_callback_query(call):
             f"Стоимость автомобиля в Корее: ₩{format_number(price_krw)} | ${format_number(price_usd)}\n"
             f"Объём двигателя: {engine_volume_formatted}\n"
             f"Мощность: {hp} л.с.\n"
-            f"🟰 <b>Стоимость под ключ до Владивостока</b>:\n<b>${format_number(total_cost_usd)}</b> | <b>₩{format_number(total_cost_krw)}</b> | <b>{format_number(total_cost)} ₽</b>\n\n"
+            f"🟰 <b>Стоимость под ключ до Владивостока</b>:\n<b>{format_number(total_cost)} ₽</b>\n\n"
             f"‼️ <b>Доставку до вашего города уточняйте у менеджера @GetAuto_manager_bot</b>\n\n"
             f"Стоимость под ключ актуальна на сегодняшний день, возможны колебания курса на 3-5% от стоимости авто, на момент покупки автомобиля\n\n"
             f"🔗 <a href='{preview_link}'>Ссылка на автомобиль</a>\n\n"
@@ -2857,8 +2848,6 @@ def calculate_manual_cost(user_id):
         + 8000
     )
 
-    total_cost_krw = total_cost / krw_rub_rate
-
     car_data["agent_korea_rub"] = 50000
     car_data["agent_korea_usd"] = 50000 / usd_rate
     car_data["agent_korea_krw"] = 50000 / krw_rub_rate
@@ -2960,8 +2949,6 @@ def calculate_manual_cost(user_id):
         f"Объём двигателя: {engine_volume_formatted}\n"
         f"Тип двигателя: {fuel_type_name}\n\n"
         f"Примерная стоимость автомобиля под ключ до Владивостока:\n"
-        # f"<b>${format_number(total_cost_usd)}</b> | "
-        f"<b>₩{format_number(total_cost_krw)}</b> | "
         f"<b>{format_number(total_cost)} ₽</b>\n\n"
         "Если данное авто попадает под санкции, пожалуйста уточните возможность отправки в вашу страну у менеджера @GetAuto_manager_bot\n\n"
         "🔗 <a href='https://t.me/Getauto_kor'>Официальный телеграм канал</a>\n"
