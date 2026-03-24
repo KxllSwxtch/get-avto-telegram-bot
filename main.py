@@ -249,6 +249,17 @@ conn = psycopg2.connect(DATABASE_URL, sslmode="require")
 cursor = conn.cursor()
 print("✅ Успешное подключение к БД")
 
+cursor.execute("""
+    CREATE TABLE IF NOT EXISTS users (
+        user_id BIGINT PRIMARY KEY,
+        username VARCHAR,
+        first_name VARCHAR,
+        phone_number VARCHAR,
+        created_at TIMESTAMP DEFAULT NOW()
+    );
+""")
+conn.commit()
+
 
 def save_user_to_db(user_id, username, first_name, phone_number):
     """Сохраняет пользователя в базу данных."""
