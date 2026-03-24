@@ -122,15 +122,12 @@ locale.setlocale(locale.LC_ALL, "en_US.UTF-8")
 # Storage for the last error message ID
 last_error_message_id = {}
 
-# global variables
-car_data = {}
+# global variables (per-user state keyed by user_id)
+car_data = {}  # user_id -> {detail fields}
 user_manual_input = {}
-car_id_external = ""
-total_car_price = 0
+car_id_external = {}  # user_id -> car_id string
 users = set()
 admins = [728438182, 7311646338, 490148761, 463460708]  # админы
-car_month = None
-car_year = None
 
 usd_rate = 0
 krw_rub_rate = None
@@ -138,8 +135,8 @@ eur_rub_rate = None
 rub_to_krw_rate = None
 cny_rub_rate = None  # CNY to RUB rate for Chinese cars
 
-vehicle_id = None
-vehicle_no = None
+vehicle_id = {}  # user_id -> vehicle_id
+vehicle_no = {}  # user_id -> vehicle_no
 
 # Pending HP requests for users (when pan-auto.ru doesn't have the car)
 pending_hp_requests = {}
@@ -681,13 +678,10 @@ def send_error_message(message, error_text):
 
 
 def get_car_info(url):
-    global car_id_external, vehicle_no, vehicle_id, car_year, car_month
-
     # driver = create_driver()
 
     car_id_match = re.findall(r"\d+", url)
     car_id = car_id_match[0]
-    car_id_external = car_id
 
     url = f"https://api.encar.com/v1/readside/vehicle/{car_id}"
 
@@ -712,8 +706,6 @@ def get_car_info(url):
     car_date = response["category"]["yearMonth"]
     year = car_date[2:4]
     month = car_date[4:]
-    car_year = year
-    car_month = month
 
     # Пробег (форматирование)
     mileage = response["spec"]["mileage"]
@@ -733,8 +725,8 @@ def get_car_info(url):
     car_photos = [url for url in car_photos if url]
 
     # Дополнительные данные
-    vehicle_no = response["vehicleNo"]
-    vehicle_id = response["vehicleId"]
+    v_no = response["vehicleNo"]
+    v_id = response["vehicleId"]
 
     # Форматируем
     formatted_car_date = f"01{month}{year}"
@@ -754,6 +746,8 @@ def get_car_info(url):
         car_photos,
         year,
         month,
+        v_no,
+        v_id,
     ]
 
 
@@ -777,7 +771,7 @@ def format_age_with_passable_hint(age, age_formatted, year, month):
 
 # Function to calculate the total cost
 def calculate_cost(link, message):
-    global car_data, car_id_external, car_month, car_year, krw_rub_rate, eur_rub_rate, rub_to_krw_rate
+    global car_id_external, vehicle_id, vehicle_no, krw_rub_rate, eur_rub_rate, rub_to_krw_rate
 
     print_message("ЗАПРОС НА РАСЧЁТ АВТОМОБИЛЯ")
 
@@ -808,7 +802,7 @@ def calculate_cost(link, message):
             query_params = parse_qs(parsed_url.query)
             car_id = query_params.get("carid", [None])[0]
 
-    car_id_external = car_id
+    car_id_external[user_id] = car_id
 
     # Step 1: Try pan-auto.ru API first (has pre-calculated customs with HP)
     print_message(f"Пробуем получить данные с pan-auto.ru для car_id={car_id}")
@@ -851,7 +845,12 @@ def calculate_cost(link, message):
         car_photos,
         year,
         month,
+        v_no,
+        v_id,
     ) = result
+
+    vehicle_id[user_id] = v_id
+    vehicle_no[user_id] = v_no
 
     if not car_price and car_engine_displacement and formatted_car_date:
         keyboard = types.InlineKeyboardMarkup()
@@ -924,9 +923,9 @@ def calculate_cost_with_pan_auto(pan_auto_data, car_id, message):
     price_krw = price_krw_from_api
     mileage = pan_auto_data.get("mileage", 0)
 
-    # Store vehicle info for insurance lookup
-    vehicle_id = pan_auto_data.get("vehicleId", "")
-    vehicle_no = pan_auto_data.get("vehicleNo", "")
+    # Store vehicle info for insurance lookup (per-user)
+    vehicle_id[user_id] = pan_auto_data.get("vehicleId", "")
+    vehicle_no[user_id] = pan_auto_data.get("vehicleNo", "")
 
     # Cache HP for future use (pan-auto.ru is a trusted source)
     if hp and manufacturer and model and engine_volume and year:
@@ -987,36 +986,37 @@ def calculate_cost_with_pan_auto(pan_auto_data, car_id, message):
         + 8000
     )
 
-    # Store car_data for detail view
-    car_data["agent_korea_rub"] = 50000
-    car_data["agent_korea_usd"] = 50000 / usd_rate
-    car_data["agent_korea_krw"] = 50000 / krw_rub_rate
+    # Store car_data for detail view (per-user)
+    car_data[user_id] = {}
+    car_data[user_id]["agent_korea_rub"] = 50000
+    car_data[user_id]["agent_korea_usd"] = 50000 / usd_rate
+    car_data[user_id]["agent_korea_krw"] = 50000 / krw_rub_rate
 
-    car_data["advance_rub"] = 1000000 * krw_rub_rate
-    car_data["advance_usd"] = (1000000 * krw_rub_rate) / usd_rate
-    car_data["advance_krw"] = 1000000
+    car_data[user_id]["advance_rub"] = 1000000 * krw_rub_rate
+    car_data[user_id]["advance_usd"] = (1000000 * krw_rub_rate) / usd_rate
+    car_data[user_id]["advance_krw"] = 1000000
 
-    car_data["car_price_krw"] = price_krw - 1000000
-    car_data["car_price_usd"] = (price_krw - 1000000) * krw_rub_rate / usd_rate
-    car_data["car_price_rub"] = (price_krw - 1000000) * krw_rub_rate
+    car_data[user_id]["car_price_krw"] = price_krw - 1000000
+    car_data[user_id]["car_price_usd"] = (price_krw - 1000000) * krw_rub_rate / usd_rate
+    car_data[user_id]["car_price_rub"] = (price_krw - 1000000) * krw_rub_rate
 
-    car_data["dealer_korea_usd"] = 440000 * krw_rub_rate / usd_rate
-    car_data["dealer_korea_krw"] = 440000
-    car_data["dealer_korea_rub"] = 440000 * krw_rub_rate
+    car_data[user_id]["dealer_korea_usd"] = 440000 * krw_rub_rate / usd_rate
+    car_data[user_id]["dealer_korea_krw"] = 440000
+    car_data[user_id]["dealer_korea_rub"] = 440000 * krw_rub_rate
 
-    car_data["delivery_korea_usd"] = 100000 * krw_rub_rate / usd_rate
-    car_data["delivery_korea_krw"] = 100000
-    car_data["delivery_korea_rub"] = 100000 * krw_rub_rate
+    car_data[user_id]["delivery_korea_usd"] = 100000 * krw_rub_rate / usd_rate
+    car_data[user_id]["delivery_korea_krw"] = 100000
+    car_data[user_id]["delivery_korea_rub"] = 100000 * krw_rub_rate
 
-    car_data["transfer_korea_usd"] = 350000 * krw_rub_rate / usd_rate
-    car_data["transfer_korea_krw"] = 350000
-    car_data["transfer_korea_rub"] = 350000 * krw_rub_rate
+    car_data[user_id]["transfer_korea_usd"] = 350000 * krw_rub_rate / usd_rate
+    car_data[user_id]["transfer_korea_krw"] = 350000
+    car_data[user_id]["transfer_korea_rub"] = 350000 * krw_rub_rate
 
-    car_data["freight_korea_usd"] = 600
-    car_data["freight_korea_krw"] = 600 * usd_rate / krw_rub_rate
-    car_data["freight_korea_rub"] = 600 * usd_rate
+    car_data[user_id]["freight_korea_usd"] = 600
+    car_data[user_id]["freight_korea_krw"] = 600 * usd_rate / krw_rub_rate
+    car_data[user_id]["freight_korea_rub"] = 600 * usd_rate
 
-    car_data["korea_total_usd"] = (
+    car_data[user_id]["korea_total_usd"] = (
         ((price_krw) * krw_rub_rate / usd_rate)
         + (440000 * krw_rub_rate / usd_rate)
         + (100000 * krw_rub_rate / usd_rate)
@@ -1024,11 +1024,11 @@ def calculate_cost_with_pan_auto(pan_auto_data, car_id, message):
         + (600)
     )
 
-    car_data["korea_total_krw"] = (
+    car_data[user_id]["korea_total_krw"] = (
         (price_krw) + (440000) + (100000) + 350000 + (600 * usd_rate / krw_rub_rate)
     )
 
-    car_data["korea_total_rub"] = (
+    car_data[user_id]["korea_total_rub"] = (
         +(price_krw * krw_rub_rate)
         + (440000 * krw_rub_rate)
         + (100000 * krw_rub_rate)
@@ -1037,39 +1037,39 @@ def calculate_cost_with_pan_auto(pan_auto_data, car_id, message):
     )
 
     # Russia expenses
-    car_data["customs_duty_usd"] = customs_duty / usd_rate
-    car_data["customs_duty_krw"] = customs_duty * rub_to_krw_rate
-    car_data["customs_duty_rub"] = customs_duty
+    car_data[user_id]["customs_duty_usd"] = customs_duty / usd_rate
+    car_data[user_id]["customs_duty_krw"] = customs_duty * rub_to_krw_rate
+    car_data[user_id]["customs_duty_rub"] = customs_duty
 
-    car_data["customs_fee_usd"] = customs_fee / usd_rate
-    car_data["customs_fee_krw"] = customs_fee / krw_rub_rate
-    car_data["customs_fee_rub"] = customs_fee
+    car_data[user_id]["customs_fee_usd"] = customs_fee / usd_rate
+    car_data[user_id]["customs_fee_krw"] = customs_fee / krw_rub_rate
+    car_data[user_id]["customs_fee_rub"] = customs_fee
 
-    car_data["util_fee_usd"] = recycling_fee / usd_rate
-    car_data["util_fee_krw"] = recycling_fee / krw_rub_rate
-    car_data["util_fee_rub"] = recycling_fee
+    car_data[user_id]["util_fee_usd"] = recycling_fee / usd_rate
+    car_data[user_id]["util_fee_krw"] = recycling_fee / krw_rub_rate
+    car_data[user_id]["util_fee_rub"] = recycling_fee
 
-    car_data["broker_russia_usd"] = (
+    car_data[user_id]["broker_russia_usd"] = (
         ((customs_duty + customs_fee + recycling_fee) / 100) * 1.5 + 30000
     ) / usd_rate
-    car_data["broker_russia_krw"] = (
+    car_data[user_id]["broker_russia_krw"] = (
         ((customs_duty + customs_fee + recycling_fee) / 100) * 1.5 + 30000
     ) * rub_to_krw_rate
-    car_data["broker_russia_rub"] = (
+    car_data[user_id]["broker_russia_rub"] = (
         (customs_duty + customs_fee + recycling_fee) / 100
     ) * 1.5 + 30000
 
-    car_data["svh_russia_usd"] = 50000 / usd_rate
-    car_data["svh_russia_krw"] = 50000 / krw_rub_rate
-    car_data["svh_russia_rub"] = 50000
+    car_data[user_id]["svh_russia_usd"] = 50000 / usd_rate
+    car_data[user_id]["svh_russia_krw"] = 50000 / krw_rub_rate
+    car_data[user_id]["svh_russia_rub"] = 50000
 
-    car_data["lab_russia_usd"] = 30000 / usd_rate
-    car_data["lab_russia_krw"] = 30000 / krw_rub_rate
-    car_data["lab_russia_rub"] = 30000
+    car_data[user_id]["lab_russia_usd"] = 30000 / usd_rate
+    car_data[user_id]["lab_russia_krw"] = 30000 / krw_rub_rate
+    car_data[user_id]["lab_russia_rub"] = 30000
 
-    car_data["perm_registration_russia_usd"] = 8000 / usd_rate
-    car_data["perm_registration_russia_krw"] = 8000 / krw_rub_rate
-    car_data["perm_registration_russia_rub"] = 8000
+    car_data[user_id]["perm_registration_russia_usd"] = 8000 / usd_rate
+    car_data[user_id]["perm_registration_russia_krw"] = 8000 / krw_rub_rate
+    car_data[user_id]["perm_registration_russia_rub"] = 8000
 
     preview_link = f"https://fem.encar.com/cars/detail/{car_id}"
 
@@ -1227,7 +1227,7 @@ def complete_url_calculation(user_id, message):
     Complete the URL-based calculation after HP and fuel type have been selected.
     Called from the fuel type callback handler.
     """
-    global car_data, usd_rate, krw_rub_rate, rub_to_krw_rate, vehicle_id, vehicle_no
+    global usd_rate, krw_rub_rate, rub_to_krw_rate
 
     pending_data = pending_hp_requests.pop(user_id, None)
 
@@ -1252,6 +1252,8 @@ def complete_url_calculation(user_id, message):
         car_photos,
         year,
         month,
+        _v_no,  # already stored in calculate_cost
+        _v_id,  # already stored in calculate_cost
     ) = car_info
 
     car_engine_displacement = int(car_engine_displacement)
@@ -1332,36 +1334,37 @@ def complete_url_calculation(user_id, message):
         + 8000
     )
 
-    # Store car_data for detail view
-    car_data["agent_korea_rub"] = 50000
-    car_data["agent_korea_usd"] = 50000 / usd_rate
-    car_data["agent_korea_krw"] = 50000 / krw_rub_rate
+    # Store car_data for detail view (per-user)
+    car_data[user_id] = {}
+    car_data[user_id]["agent_korea_rub"] = 50000
+    car_data[user_id]["agent_korea_usd"] = 50000 / usd_rate
+    car_data[user_id]["agent_korea_krw"] = 50000 / krw_rub_rate
 
-    car_data["advance_rub"] = 1000000 * krw_rub_rate
-    car_data["advance_usd"] = (1000000 * krw_rub_rate) / usd_rate
-    car_data["advance_krw"] = 1000000
+    car_data[user_id]["advance_rub"] = 1000000 * krw_rub_rate
+    car_data[user_id]["advance_usd"] = (1000000 * krw_rub_rate) / usd_rate
+    car_data[user_id]["advance_krw"] = 1000000
 
-    car_data["car_price_krw"] = price_krw - 1000000
-    car_data["car_price_usd"] = (price_krw - 1000000) * krw_rub_rate / usd_rate
-    car_data["car_price_rub"] = (price_krw - 1000000) * krw_rub_rate
+    car_data[user_id]["car_price_krw"] = price_krw - 1000000
+    car_data[user_id]["car_price_usd"] = (price_krw - 1000000) * krw_rub_rate / usd_rate
+    car_data[user_id]["car_price_rub"] = (price_krw - 1000000) * krw_rub_rate
 
-    car_data["dealer_korea_usd"] = 440000 * krw_rub_rate / usd_rate
-    car_data["dealer_korea_krw"] = 440000
-    car_data["dealer_korea_rub"] = 440000 * krw_rub_rate
+    car_data[user_id]["dealer_korea_usd"] = 440000 * krw_rub_rate / usd_rate
+    car_data[user_id]["dealer_korea_krw"] = 440000
+    car_data[user_id]["dealer_korea_rub"] = 440000 * krw_rub_rate
 
-    car_data["delivery_korea_usd"] = 100000 * krw_rub_rate / usd_rate
-    car_data["delivery_korea_krw"] = 100000
-    car_data["delivery_korea_rub"] = 100000 * krw_rub_rate
+    car_data[user_id]["delivery_korea_usd"] = 100000 * krw_rub_rate / usd_rate
+    car_data[user_id]["delivery_korea_krw"] = 100000
+    car_data[user_id]["delivery_korea_rub"] = 100000 * krw_rub_rate
 
-    car_data["transfer_korea_usd"] = 350000 * krw_rub_rate / usd_rate
-    car_data["transfer_korea_krw"] = 350000
-    car_data["transfer_korea_rub"] = 350000 * krw_rub_rate
+    car_data[user_id]["transfer_korea_usd"] = 350000 * krw_rub_rate / usd_rate
+    car_data[user_id]["transfer_korea_krw"] = 350000
+    car_data[user_id]["transfer_korea_rub"] = 350000 * krw_rub_rate
 
-    car_data["freight_korea_usd"] = 600
-    car_data["freight_korea_krw"] = 600 * usd_rate / krw_rub_rate
-    car_data["freight_korea_rub"] = 600 * usd_rate
+    car_data[user_id]["freight_korea_usd"] = 600
+    car_data[user_id]["freight_korea_krw"] = 600 * usd_rate / krw_rub_rate
+    car_data[user_id]["freight_korea_rub"] = 600 * usd_rate
 
-    car_data["korea_total_usd"] = (
+    car_data[user_id]["korea_total_usd"] = (
         ((price_krw) * krw_rub_rate / usd_rate)
         + (440000 * krw_rub_rate / usd_rate)
         + (100000 * krw_rub_rate / usd_rate)
@@ -1369,11 +1372,11 @@ def complete_url_calculation(user_id, message):
         + (600)
     )
 
-    car_data["korea_total_krw"] = (
+    car_data[user_id]["korea_total_krw"] = (
         (price_krw) + (440000) + (100000) + 350000 + (600 * usd_rate / krw_rub_rate)
     )
 
-    car_data["korea_total_rub"] = (
+    car_data[user_id]["korea_total_rub"] = (
         +(price_krw * krw_rub_rate)
         + (440000 * krw_rub_rate)
         + (100000 * krw_rub_rate)
@@ -1382,39 +1385,39 @@ def complete_url_calculation(user_id, message):
     )
 
     # Russia expenses
-    car_data["customs_duty_usd"] = customs_duty / usd_rate
-    car_data["customs_duty_krw"] = customs_duty * rub_to_krw_rate
-    car_data["customs_duty_rub"] = customs_duty
+    car_data[user_id]["customs_duty_usd"] = customs_duty / usd_rate
+    car_data[user_id]["customs_duty_krw"] = customs_duty * rub_to_krw_rate
+    car_data[user_id]["customs_duty_rub"] = customs_duty
 
-    car_data["customs_fee_usd"] = customs_fee / usd_rate
-    car_data["customs_fee_krw"] = customs_fee / krw_rub_rate
-    car_data["customs_fee_rub"] = customs_fee
+    car_data[user_id]["customs_fee_usd"] = customs_fee / usd_rate
+    car_data[user_id]["customs_fee_krw"] = customs_fee / krw_rub_rate
+    car_data[user_id]["customs_fee_rub"] = customs_fee
 
-    car_data["util_fee_usd"] = recycling_fee / usd_rate
-    car_data["util_fee_krw"] = recycling_fee / krw_rub_rate
-    car_data["util_fee_rub"] = recycling_fee
+    car_data[user_id]["util_fee_usd"] = recycling_fee / usd_rate
+    car_data[user_id]["util_fee_krw"] = recycling_fee / krw_rub_rate
+    car_data[user_id]["util_fee_rub"] = recycling_fee
 
-    car_data["broker_russia_usd"] = (
+    car_data[user_id]["broker_russia_usd"] = (
         ((customs_duty + customs_fee + recycling_fee) / 100) * 1.5 + 30000
     ) / usd_rate
-    car_data["broker_russia_krw"] = (
+    car_data[user_id]["broker_russia_krw"] = (
         ((customs_duty + customs_fee + recycling_fee) / 100) * 1.5 + 30000
     ) * rub_to_krw_rate
-    car_data["broker_russia_rub"] = (
+    car_data[user_id]["broker_russia_rub"] = (
         (customs_duty + customs_fee + recycling_fee) / 100
     ) * 1.5 + 30000
 
-    car_data["svh_russia_usd"] = 50000 / usd_rate
-    car_data["svh_russia_krw"] = 50000 / krw_rub_rate
-    car_data["svh_russia_rub"] = 50000
+    car_data[user_id]["svh_russia_usd"] = 50000 / usd_rate
+    car_data[user_id]["svh_russia_krw"] = 50000 / krw_rub_rate
+    car_data[user_id]["svh_russia_rub"] = 50000
 
-    car_data["lab_russia_usd"] = 30000 / usd_rate
-    car_data["lab_russia_krw"] = 30000 / krw_rub_rate
-    car_data["lab_russia_rub"] = 30000
+    car_data[user_id]["lab_russia_usd"] = 30000 / usd_rate
+    car_data[user_id]["lab_russia_krw"] = 30000 / krw_rub_rate
+    car_data[user_id]["lab_russia_rub"] = 30000
 
-    car_data["perm_registration_russia_usd"] = 8000 / usd_rate
-    car_data["perm_registration_russia_krw"] = 8000 / krw_rub_rate
-    car_data["perm_registration_russia_rub"] = 8000
+    car_data[user_id]["perm_registration_russia_usd"] = 8000 / usd_rate
+    car_data[user_id]["perm_registration_russia_krw"] = 8000 / krw_rub_rate
+    car_data[user_id]["perm_registration_russia_rub"] = 8000
 
     preview_link = f"https://fem.encar.com/cars/detail/{car_id}"
 
@@ -1720,31 +1723,32 @@ def complete_china_calculation(user_id, message):
         else "от 5 до 7 лет" if age == "5-7" else "от 7 лет")
     )
 
-    # Store car_data for detail view
-    car_data["source"] = "che168"
-    car_data["first_payment_cny"] = CHINA_FIRST_PAYMENT
-    car_data["first_payment_rub"] = first_payment_rub
-    car_data["car_price_cny"] = car_price_after_deposit
-    car_data["car_price_rub"] = car_price_after_deposit * cny_rub_rate
-    car_data["dealer_china_cny"] = CHINA_DEALER_FEE
-    car_data["dealer_china_rub"] = dealer_fee_rub
-    car_data["delivery_china_cny"] = CHINA_DELIVERY
-    car_data["delivery_china_rub"] = delivery_rub
-    car_data["china_total_cny"] = china_total_cny
-    car_data["china_total_rub"] = china_total_rub
-    car_data["customs_duty_rub"] = customs_duty
-    car_data["customs_fee_rub"] = customs_fee
-    car_data["util_fee_rub"] = recycling_fee
-    car_data["agent_russia_rub"] = CHINA_AGENT_FEE
-    car_data["broker_russia_rub"] = CHINA_BROKER_FEE
-    car_data["svh_russia_rub"] = CHINA_SVH_FEE
-    car_data["lab_russia_rub"] = CHINA_LAB_FEE
-    car_data["total_cost_rub"] = total_cost_rub
-    car_data["total_cost_usd"] = total_cost_usd
-    car_data["total_cost_cny"] = total_cost_cny
-    car_data["link"] = link
-    car_data["car_name"] = car_name
-    car_data["fuel_type_name"] = fuel_type_name
+    # Store car_data for detail view (per-user)
+    car_data[user_id] = {}
+    car_data[user_id]["source"] = "che168"
+    car_data[user_id]["first_payment_cny"] = CHINA_FIRST_PAYMENT
+    car_data[user_id]["first_payment_rub"] = first_payment_rub
+    car_data[user_id]["car_price_cny"] = car_price_after_deposit
+    car_data[user_id]["car_price_rub"] = car_price_after_deposit * cny_rub_rate
+    car_data[user_id]["dealer_china_cny"] = CHINA_DEALER_FEE
+    car_data[user_id]["dealer_china_rub"] = dealer_fee_rub
+    car_data[user_id]["delivery_china_cny"] = CHINA_DELIVERY
+    car_data[user_id]["delivery_china_rub"] = delivery_rub
+    car_data[user_id]["china_total_cny"] = china_total_cny
+    car_data[user_id]["china_total_rub"] = china_total_rub
+    car_data[user_id]["customs_duty_rub"] = customs_duty
+    car_data[user_id]["customs_fee_rub"] = customs_fee
+    car_data[user_id]["util_fee_rub"] = recycling_fee
+    car_data[user_id]["agent_russia_rub"] = CHINA_AGENT_FEE
+    car_data[user_id]["broker_russia_rub"] = CHINA_BROKER_FEE
+    car_data[user_id]["svh_russia_rub"] = CHINA_SVH_FEE
+    car_data[user_id]["lab_russia_rub"] = CHINA_LAB_FEE
+    car_data[user_id]["total_cost_rub"] = total_cost_rub
+    car_data[user_id]["total_cost_usd"] = total_cost_usd
+    car_data[user_id]["total_cost_cny"] = total_cost_cny
+    car_data[user_id]["link"] = link
+    car_data[user_id]["car_name"] = car_name
+    car_data[user_id]["fuel_type_name"] = fuel_type_name
 
     # Format result message (matching Korean format)
     result_message = (
@@ -2018,29 +2022,30 @@ def calculate_manual_china_cost(user_id):
 
     fuel_type_name = FUEL_TYPE_NAMES.get(fuel_type, "Бензин")
 
-    # Store car_data for detail view
-    car_data["source"] = "che168_manual"
-    car_data["first_payment_cny"] = CHINA_FIRST_PAYMENT
-    car_data["first_payment_rub"] = first_payment_rub
-    car_data["car_price_cny"] = car_price_after_deposit
-    car_data["car_price_rub"] = car_price_after_deposit * cny_rub_rate
-    car_data["dealer_china_cny"] = CHINA_DEALER_FEE
-    car_data["dealer_china_rub"] = dealer_fee_rub
-    car_data["delivery_china_cny"] = CHINA_DELIVERY
-    car_data["delivery_china_rub"] = delivery_rub
-    car_data["china_total_cny"] = china_total_cny
-    car_data["china_total_rub"] = china_total_rub
-    car_data["customs_duty_rub"] = customs_duty
-    car_data["customs_fee_rub"] = customs_fee
-    car_data["util_fee_rub"] = recycling_fee
-    car_data["agent_russia_rub"] = CHINA_AGENT_FEE
-    car_data["broker_russia_rub"] = CHINA_BROKER_FEE
-    car_data["svh_russia_rub"] = CHINA_SVH_FEE
-    car_data["lab_russia_rub"] = CHINA_LAB_FEE
-    car_data["total_cost_rub"] = total_cost_rub
-    car_data["total_cost_usd"] = total_cost_usd
-    car_data["total_cost_cny"] = total_cost_cny
-    car_data["fuel_type_name"] = fuel_type_name
+    # Store car_data for detail view (per-user)
+    car_data[user_id] = {}
+    car_data[user_id]["source"] = "che168_manual"
+    car_data[user_id]["first_payment_cny"] = CHINA_FIRST_PAYMENT
+    car_data[user_id]["first_payment_rub"] = first_payment_rub
+    car_data[user_id]["car_price_cny"] = car_price_after_deposit
+    car_data[user_id]["car_price_rub"] = car_price_after_deposit * cny_rub_rate
+    car_data[user_id]["dealer_china_cny"] = CHINA_DEALER_FEE
+    car_data[user_id]["dealer_china_rub"] = dealer_fee_rub
+    car_data[user_id]["delivery_china_cny"] = CHINA_DELIVERY
+    car_data[user_id]["delivery_china_rub"] = delivery_rub
+    car_data[user_id]["china_total_cny"] = china_total_cny
+    car_data[user_id]["china_total_rub"] = china_total_rub
+    car_data[user_id]["customs_duty_rub"] = customs_duty
+    car_data[user_id]["customs_fee_rub"] = customs_fee
+    car_data[user_id]["util_fee_rub"] = recycling_fee
+    car_data[user_id]["agent_russia_rub"] = CHINA_AGENT_FEE
+    car_data[user_id]["broker_russia_rub"] = CHINA_BROKER_FEE
+    car_data[user_id]["svh_russia_rub"] = CHINA_SVH_FEE
+    car_data[user_id]["lab_russia_rub"] = CHINA_LAB_FEE
+    car_data[user_id]["total_cost_rub"] = total_cost_rub
+    car_data[user_id]["total_cost_usd"] = total_cost_usd
+    car_data[user_id]["total_cost_cny"] = total_cost_cny
+    car_data[user_id]["fuel_type_name"] = fuel_type_name
 
     # Format result message (matching Korean manual format)
     result_message = (
@@ -2084,13 +2089,12 @@ def calculate_manual_china_cost(user_id):
 
 
 # Function to get insurance total
-def get_insurance_total():
-    global car_id_external, vehicle_no, vehicle_id
-
+def get_insurance_total(user_id):
     print_message("[ЗАПРОС] ТЕХНИЧЕСКИЙ ОТЧËТ ОБ АВТОМОБИЛЕ")
 
-    formatted_vehicle_no = urllib.parse.quote(str(vehicle_no).strip())
-    url = f"https://api.encar.com/v1/readside/record/vehicle/{str(vehicle_id)}/open?vehicleNo={formatted_vehicle_no}"
+    formatted_vehicle_no = urllib.parse.quote(str(vehicle_no.get(user_id, "")).strip())
+    v_id = vehicle_id.get(user_id, "")
+    url = f"https://api.encar.com/v1/readside/record/vehicle/{str(v_id)}/open?vehicleNo={formatted_vehicle_no}"
 
     try:
         headers = {
@@ -2122,7 +2126,8 @@ def get_insurance_total():
 # Callback query handler
 @bot.callback_query_handler(func=lambda call: True)
 def handle_callback_query(call):
-    global car_data, car_id_external, usd_rate
+    global usd_rate
+    user_id = call.message.chat.id
 
     # Обработка пагинации статистики
     if call.data.startswith("stats_page_"):
@@ -2147,7 +2152,6 @@ def handle_callback_query(call):
 
     elif call.data.startswith("fuel_"):
         # Handle fuel type selection for all calculation flows
-        user_id = call.message.chat.id
         fuel_type = int(call.data.split("_")[1])
         fuel_type_name = FUEL_TYPE_NAMES.get(fuel_type, "Бензин")
 
@@ -2198,7 +2202,6 @@ def handle_callback_query(call):
 
     elif call.data == "calc_passable":
         # Recalculate cost as if the car were "проходная" (3-5 years) using lowCosts
-        user_id = call.message.chat.id
         passable_data = pending_passable_data.pop(user_id, None)
 
         if not passable_data:
@@ -2242,22 +2245,24 @@ def handle_callback_query(call):
         # Recalculate broker fee with lowCosts values
         broker_rub = ((low_customs_duty + low_customs_fee + low_recycling_fee) / 100) * 1.5 + 30000
 
-        # Update car_data for "Детали расчёта"
-        car_data["customs_duty_usd"] = low_customs_duty / usd_rate
-        car_data["customs_duty_krw"] = low_customs_duty * rub_to_krw_rate
-        car_data["customs_duty_rub"] = low_customs_duty
+        # Update car_data for "Детали расчёта" (per-user)
+        if user_id not in car_data:
+            car_data[user_id] = {}
+        car_data[user_id]["customs_duty_usd"] = low_customs_duty / usd_rate
+        car_data[user_id]["customs_duty_krw"] = low_customs_duty * rub_to_krw_rate
+        car_data[user_id]["customs_duty_rub"] = low_customs_duty
 
-        car_data["customs_fee_usd"] = low_customs_fee / usd_rate
-        car_data["customs_fee_krw"] = low_customs_fee / krw_rub_rate
-        car_data["customs_fee_rub"] = low_customs_fee
+        car_data[user_id]["customs_fee_usd"] = low_customs_fee / usd_rate
+        car_data[user_id]["customs_fee_krw"] = low_customs_fee / krw_rub_rate
+        car_data[user_id]["customs_fee_rub"] = low_customs_fee
 
-        car_data["util_fee_usd"] = low_recycling_fee / usd_rate
-        car_data["util_fee_krw"] = low_recycling_fee / krw_rub_rate
-        car_data["util_fee_rub"] = low_recycling_fee
+        car_data[user_id]["util_fee_usd"] = low_recycling_fee / usd_rate
+        car_data[user_id]["util_fee_krw"] = low_recycling_fee / krw_rub_rate
+        car_data[user_id]["util_fee_rub"] = low_recycling_fee
 
-        car_data["broker_russia_usd"] = broker_rub / usd_rate
-        car_data["broker_russia_krw"] = broker_rub * rub_to_krw_rate
-        car_data["broker_russia_rub"] = broker_rub
+        car_data[user_id]["broker_russia_usd"] = broker_rub / usd_rate
+        car_data[user_id]["broker_russia_krw"] = broker_rub * rub_to_krw_rate
+        car_data[user_id]["broker_russia_rub"] = broker_rub
 
         preview_link = f"https://fem.encar.com/cars/detail/{car_id}"
 
@@ -2307,22 +2312,27 @@ def handle_callback_query(call):
         # Detail view for Chinese car calculations
         print_message("[ЗАПРОС] ДЕТАЛИЗАЦИЯ РАСЧËТА (КИТАЙ)")
 
+        ud = car_data.get(user_id, {})
+        if not ud:
+            bot.send_message(user_id, "Данные расчёта не найдены. Попробуйте рассчитать заново.")
+            return
+
         detail_message = (
             f"<i>ПЕРВАЯ ЧАСТЬ ОПЛАТЫ</i>:\n\n"
-            f"Задаток (бронь авто):\n<b>¥{format_number(car_data['first_payment_cny'])}</b> | <b>{format_number(int(car_data['first_payment_rub']))} ₽</b>\n\n\n"
+            f"Задаток (бронь авто):\n<b>¥{format_number(ud['first_payment_cny'])}</b> | <b>{format_number(int(ud['first_payment_rub']))} ₽</b>\n\n\n"
             f"<i>ВТОРАЯ ЧАСТЬ ОПЛАТЫ</i>:\n\n"
-            f"Стоимость авто (минус задаток):\n<b>¥{format_number(car_data['car_price_cny'])}</b> | <b>{format_number(int(car_data['car_price_rub']))} ₽</b>\n\n"
-            f"Дилерский сбор:\n<b>¥{format_number(car_data['dealer_china_cny'])}</b> | <b>{format_number(int(car_data['dealer_china_rub']))} ₽</b>\n\n"
-            f"Доставка, снятие с учёта, оформление:\n<b>¥{format_number(car_data['delivery_china_cny'])}</b> | <b>{format_number(int(car_data['delivery_china_rub']))} ₽</b>\n\n"
-            f"<b>Итого расходов по Китаю</b>:\n<b>¥{format_number(car_data['china_total_cny'])}</b> | <b>{format_number(int(car_data['china_total_rub']))} ₽</b>\n\n\n"
+            f"Стоимость авто (минус задаток):\n<b>¥{format_number(ud['car_price_cny'])}</b> | <b>{format_number(int(ud['car_price_rub']))} ₽</b>\n\n"
+            f"Дилерский сбор:\n<b>¥{format_number(ud['dealer_china_cny'])}</b> | <b>{format_number(int(ud['dealer_china_rub']))} ₽</b>\n\n"
+            f"Доставка, снятие с учёта, оформление:\n<b>¥{format_number(ud['delivery_china_cny'])}</b> | <b>{format_number(int(ud['delivery_china_rub']))} ₽</b>\n\n"
+            f"<b>Итого расходов по Китаю</b>:\n<b>¥{format_number(ud['china_total_cny'])}</b> | <b>{format_number(int(ud['china_total_rub']))} ₽</b>\n\n\n"
             f"<i>РАСХОДЫ РОССИЯ</i>:\n\n"
-            f"Единая таможенная ставка:\n<b>{format_number(int(car_data['customs_duty_rub']))} ₽</b>\n\n"
-            f"Таможенное оформление:\n<b>{format_number(int(car_data['customs_fee_rub']))} ₽</b>\n\n"
-            f"Утилизационный сбор:\n<b>{format_number(int(car_data['util_fee_rub']))} ₽</b>\n\n"
-            f"Агентские услуги:\n<b>{format_number(car_data['agent_russia_rub'])} ₽</b>\n\n"
-            f"Брокер:\n<b>{format_number(car_data['broker_russia_rub'])} ₽</b>\n\n"
-            f"СВХ:\n<b>{format_number(car_data['svh_russia_rub'])} ₽</b>\n\n"
-            f"Лаборатория, СБКТС, ЭПТС:\n<b>{format_number(car_data['lab_russia_rub'])} ₽</b>\n\n"
+            f"Единая таможенная ставка:\n<b>{format_number(int(ud['customs_duty_rub']))} ₽</b>\n\n"
+            f"Таможенное оформление:\n<b>{format_number(int(ud['customs_fee_rub']))} ₽</b>\n\n"
+            f"Утилизационный сбор:\n<b>{format_number(int(ud['util_fee_rub']))} ₽</b>\n\n"
+            f"Агентские услуги:\n<b>{format_number(ud['agent_russia_rub'])} ₽</b>\n\n"
+            f"Брокер:\n<b>{format_number(ud['broker_russia_rub'])} ₽</b>\n\n"
+            f"СВХ:\n<b>{format_number(ud['svh_russia_rub'])} ₽</b>\n\n"
+            f"Лаборатория, СБКТС, ЭПТС:\n<b>{format_number(ud['lab_russia_rub'])} ₽</b>\n\n"
             f"<b>Доставку до вашего города уточняйте у менеджера @GetAuto_manager_bot</b>\n\n"
             "<b>СТОИМОСТЬ ПОД КЛЮЧ АКТУАЛЬНА НА СЕГОДНЯШНИЙ ДЕНЬ, ВОЗМОЖНЫ КОЛЕБАНИЯ КУРСА НА 3-5% ОТ СТОИМОСТИ АВТО, НА МОМЕНТ ПОКУПКИ АВТОМОБИЛЯ</b>\n\n"
         )
@@ -2361,25 +2371,30 @@ def handle_callback_query(call):
     elif call.data.startswith("detail") or call.data.startswith("detail_manual"):
         print_message("[ЗАПРОС] ДЕТАЛИЗАЦИЯ РАСЧËТА")
 
+        ud = car_data.get(user_id, {})
+        if not ud:
+            bot.send_message(user_id, "Данные расчёта не найдены. Попробуйте рассчитать заново.")
+            return
+
         detail_message = (
             f"<i>ПЕРВАЯ ЧАСТЬ ОПЛАТЫ</i>:\n\n"
-            f"Задаток (бронь авто):\n<b>${format_number(car_data['advance_usd'])}</b> | <b>₩1,000,000</b> | <b>{format_number(car_data['advance_rub'])} ₽</b>\n\n\n"
+            f"Задаток (бронь авто):\n<b>${format_number(ud['advance_usd'])}</b> | <b>₩1,000,000</b> | <b>{format_number(ud['advance_rub'])} ₽</b>\n\n\n"
             f"<i>ВТОРАЯ ЧАСТЬ ОПЛАТЫ</i>:\n\n"
-            f"Стоимость автомобиля (за вычетом задатка):\n<b>${format_number(car_data['car_price_usd'])}</b> | <b>₩{format_number(car_data['car_price_krw'])}</b> | <b>{format_number(car_data['car_price_rub'])} ₽</b>\n\n"
-            f"Диллерский сбор:\n<b>${format_number(car_data['dealer_korea_usd'])}</b> | <b>₩{format_number(car_data['dealer_korea_krw'])}</b> | <b>{format_number(car_data['dealer_korea_rub'])} ₽</b>\n\n"
-            f"Доставка, снятие с учёта, оформление:\n<b>${format_number(car_data['delivery_korea_usd'])}</b> | <b>₩{format_number(car_data['delivery_korea_krw'])}</b> | <b>{format_number(car_data['delivery_korea_rub'])} ₽</b>\n\n"
-            f"Транспортировка авто в порт:\n<b>${format_number(car_data['transfer_korea_usd'])}</b> | <b>₩{format_number(car_data['transfer_korea_krw'])}</b> | <b>{format_number(car_data['transfer_korea_rub'])} ₽</b>\n\n"
-            f"Фрахт (Паром до Владивостока):\n<b>${format_number(car_data['freight_korea_usd'])}</b> | <b>₩{format_number(car_data['freight_korea_krw'])}</b> | <b>{format_number(car_data['freight_korea_rub'])} ₽</b>\n\n"
-            f"<b>Итого расходов по Корее</b>:\n<b>${format_number(car_data['korea_total_usd'])}</b> | <b>₩{format_number(car_data['korea_total_krw'])}</b> | <b>{format_number(car_data['korea_total_rub'])} ₽</b>\n\n\n"
+            f"Стоимость автомобиля (за вычетом задатка):\n<b>${format_number(ud['car_price_usd'])}</b> | <b>₩{format_number(ud['car_price_krw'])}</b> | <b>{format_number(ud['car_price_rub'])} ₽</b>\n\n"
+            f"Диллерский сбор:\n<b>${format_number(ud['dealer_korea_usd'])}</b> | <b>₩{format_number(ud['dealer_korea_krw'])}</b> | <b>{format_number(ud['dealer_korea_rub'])} ₽</b>\n\n"
+            f"Доставка, снятие с учёта, оформление:\n<b>${format_number(ud['delivery_korea_usd'])}</b> | <b>₩{format_number(ud['delivery_korea_krw'])}</b> | <b>{format_number(ud['delivery_korea_rub'])} ₽</b>\n\n"
+            f"Транспортировка авто в порт:\n<b>${format_number(ud['transfer_korea_usd'])}</b> | <b>₩{format_number(ud['transfer_korea_krw'])}</b> | <b>{format_number(ud['transfer_korea_rub'])} ₽</b>\n\n"
+            f"Фрахт (Паром до Владивостока):\n<b>${format_number(ud['freight_korea_usd'])}</b> | <b>₩{format_number(ud['freight_korea_krw'])}</b> | <b>{format_number(ud['freight_korea_rub'])} ₽</b>\n\n"
+            f"<b>Итого расходов по Корее</b>:\n<b>${format_number(ud['korea_total_usd'])}</b> | <b>₩{format_number(ud['korea_total_krw'])}</b> | <b>{format_number(ud['korea_total_rub'])} ₽</b>\n\n\n"
             f"<i>РАСХОДЫ РОССИЯ</i>:\n\n\n"
-            f"Единая таможенная ставка:\n<b>${format_number(car_data['customs_duty_usd'])}</b> | <b>₩{format_number(car_data['customs_duty_krw'])}</b> | <b>{format_number(car_data['customs_duty_rub'])} ₽</b>\n\n"
-            f"Таможенное оформление:\n<b>${format_number(car_data['customs_fee_usd'])}</b> | <b>₩{format_number(car_data['customs_fee_krw'])}</b> | <b>{format_number(car_data['customs_fee_rub'])} ₽</b>\n\n"
-            f"Утилизационный сбор:\n<b>${format_number(car_data['util_fee_usd'])}</b> | <b>₩{format_number(car_data['util_fee_krw'])}</b> | <b>{format_number(car_data['util_fee_rub'])} ₽</b>\n\n\n"
-            f"Агентские услуги по договору:\n<b>${format_number(car_data['agent_korea_usd'])}</b> | <b>₩{format_number(car_data['agent_korea_krw'])}</b> | <b>50,000 ₽</b>\n\n"
-            f"Брокер-Владивосток:\n<b>${format_number(car_data['broker_russia_usd'])}</b> | <b>₩{format_number(car_data['broker_russia_krw'])}</b> | <b>{format_number(car_data['broker_russia_rub'])} ₽</b>\n\n"
-            f"СВХ-Владивосток:\n<b>${format_number(car_data['svh_russia_usd'])}</b> | <b>₩{format_number(car_data['svh_russia_krw'])}</b> | <b>{format_number(car_data['svh_russia_rub'])} ₽</b>\n\n"
-            f"Лаборатория, СБКТС, ЭПТС:\n<b>${format_number(car_data['lab_russia_usd'])}</b> | <b>₩{format_number(car_data['lab_russia_krw'])}</b> | <b>{format_number(car_data['lab_russia_rub'])} ₽</b>\n\n"
-            f"Временная регистрация-Владивосток:\n<b>${format_number(car_data['perm_registration_russia_usd'])}</b> | <b>₩{format_number(car_data['perm_registration_russia_krw'])}</b> | <b>{format_number(car_data['perm_registration_russia_rub'])} ₽</b>\n\n"
+            f"Единая таможенная ставка:\n<b>${format_number(ud['customs_duty_usd'])}</b> | <b>₩{format_number(ud['customs_duty_krw'])}</b> | <b>{format_number(ud['customs_duty_rub'])} ₽</b>\n\n"
+            f"Таможенное оформление:\n<b>${format_number(ud['customs_fee_usd'])}</b> | <b>₩{format_number(ud['customs_fee_krw'])}</b> | <b>{format_number(ud['customs_fee_rub'])} ₽</b>\n\n"
+            f"Утилизационный сбор:\n<b>${format_number(ud['util_fee_usd'])}</b> | <b>₩{format_number(ud['util_fee_krw'])}</b> | <b>{format_number(ud['util_fee_rub'])} ₽</b>\n\n\n"
+            f"Агентские услуги по договору:\n<b>${format_number(ud['agent_korea_usd'])}</b> | <b>₩{format_number(ud['agent_korea_krw'])}</b> | <b>50,000 ₽</b>\n\n"
+            f"Брокер-Владивосток:\n<b>${format_number(ud['broker_russia_usd'])}</b> | <b>₩{format_number(ud['broker_russia_krw'])}</b> | <b>{format_number(ud['broker_russia_rub'])} ₽</b>\n\n"
+            f"СВХ-Владивосток:\n<b>${format_number(ud['svh_russia_usd'])}</b> | <b>₩{format_number(ud['svh_russia_krw'])}</b> | <b>{format_number(ud['svh_russia_rub'])} ₽</b>\n\n"
+            f"Лаборатория, СБКТС, ЭПТС:\n<b>${format_number(ud['lab_russia_usd'])}</b> | <b>₩{format_number(ud['lab_russia_krw'])}</b> | <b>{format_number(ud['lab_russia_rub'])} ₽</b>\n\n"
+            f"Временная регистрация-Владивосток:\n<b>${format_number(ud['perm_registration_russia_usd'])}</b> | <b>₩{format_number(ud['perm_registration_russia_krw'])}</b> | <b>{format_number(ud['perm_registration_russia_rub'])} ₽</b>\n\n"
             f"<b>Доставку до вашего города уточняйте у менеджера @GetAuto_manager_bot</b>\n\n"
             "<b>СТОИМОСТЬ ПОД КЛЮЧ АКТУАЛЬНА НА СЕГОДНЯШНИЙ ДЕНЬ, ВОЗМОЖНЫ КОЛЕБАНИЯ КУРСА НА 3-5% ОТ СТОИМОСТИ АВТО, НА МОМЕНТ ПОКУПКИ АВТОМОБИЛЯ</b>\n\n"
         )
@@ -2421,8 +2436,9 @@ def handle_callback_query(call):
             "Запрашиваю отчёт по ДТП. Пожалуйста подождите ⏳",
         )
 
-        # Retrieve insurance information
-        insurance_info = get_insurance_total()
+        # Retrieve insurance information (per-user)
+        insurance_info = get_insurance_total(user_id)
+        user_car_id = car_id_external.get(user_id, "")
 
         # Проверка на наличие ошибки
         if (
@@ -2432,7 +2448,7 @@ def handle_callback_query(call):
         ):
             error_message = (
                 "Не удалось получить данные о страховых выплатах. \n\n"
-                f'<a href="https://fem.encar.com/cars/report/accident/{car_id_external}">🔗 Посмотреть страховую историю вручную 🔗</a>\n\n\n'
+                f'<a href="https://fem.encar.com/cars/report/accident/{user_car_id}">🔗 Посмотреть страховую историю вручную 🔗</a>\n\n\n'
                 f"<b>Найдите две строки:</b>\n\n"
                 f"보험사고 이력 (내차 피해) - Выплаты по представленному автомобилю\n"
                 f"보험사고 이력 (타차 가해) - Выплаты другим участникам ДТП"
@@ -2471,7 +2487,7 @@ def handle_callback_query(call):
             tech_report_message = (
                 f"Страховые выплаты по представленному автомобилю: \n<b>{current_car_insurance_payments} ₩</b>\n\n"
                 f"Страховые выплаты другим участникам ДТП: \n<b>{other_car_insurance_payments} ₩</b>\n\n"
-                f'<a href="https://fem.encar.com/cars/report/inspect/{car_id_external}">🔗 Ссылка на схему повреждений кузовных элементов 🔗</a>'
+                f'<a href="https://fem.encar.com/cars/report/inspect/{user_car_id}">🔗 Ссылка на схему повреждений кузовных элементов 🔗</a>'
             )
 
             # Inline buttons for further actions
@@ -2502,7 +2518,6 @@ def handle_callback_query(call):
         )
 
     elif call.data == "calculate_another_manual":
-        user_id = call.message.chat.id
         user_manual_input[user_id] = {}  # Очищаем старые данные пользователя
         bot.send_message(user_id, "Введите месяц выпуска (например, 10 для октября):")
         bot.register_next_step_handler(call.message, process_manual_month)
@@ -2513,7 +2528,6 @@ def handle_callback_query(call):
         )
 
     elif call.data == "check_subscription":
-        user_id = call.message.chat.id
         print(f"Проверка подписки для пользователя {user_id}")
 
         try:
@@ -2848,36 +2862,38 @@ def calculate_manual_cost(user_id):
         + 8000
     )
 
-    car_data["agent_korea_rub"] = 50000
-    car_data["agent_korea_usd"] = 50000 / usd_rate
-    car_data["agent_korea_krw"] = 50000 / krw_rub_rate
+    # Store car_data for detail view (per-user)
+    car_data[user_id] = {}
+    car_data[user_id]["agent_korea_rub"] = 50000
+    car_data[user_id]["agent_korea_usd"] = 50000 / usd_rate
+    car_data[user_id]["agent_korea_krw"] = 50000 / krw_rub_rate
 
-    car_data["advance_rub"] = 1000000 * krw_rub_rate
-    car_data["advance_usd"] = (1000000 * krw_rub_rate) / usd_rate
-    car_data["advance_krw"] = 1000000
+    car_data[user_id]["advance_rub"] = 1000000 * krw_rub_rate
+    car_data[user_id]["advance_usd"] = (1000000 * krw_rub_rate) / usd_rate
+    car_data[user_id]["advance_krw"] = 1000000
 
     # Задаток 1 млн. вон
-    car_data["car_price_krw"] = price_krw - 1000000
-    car_data["car_price_usd"] = (price_krw - 1000000) * krw_rub_rate / usd_rate
-    car_data["car_price_rub"] = (price_krw - 1000000) * krw_rub_rate
+    car_data[user_id]["car_price_krw"] = price_krw - 1000000
+    car_data[user_id]["car_price_usd"] = (price_krw - 1000000) * krw_rub_rate / usd_rate
+    car_data[user_id]["car_price_rub"] = (price_krw - 1000000) * krw_rub_rate
 
-    car_data["dealer_korea_usd"] = 440000 * krw_rub_rate / usd_rate
-    car_data["dealer_korea_krw"] = 440000
-    car_data["dealer_korea_rub"] = 440000 * krw_rub_rate
+    car_data[user_id]["dealer_korea_usd"] = 440000 * krw_rub_rate / usd_rate
+    car_data[user_id]["dealer_korea_krw"] = 440000
+    car_data[user_id]["dealer_korea_rub"] = 440000 * krw_rub_rate
 
-    car_data["delivery_korea_usd"] = 100000 * krw_rub_rate / usd_rate
-    car_data["delivery_korea_krw"] = 100000
-    car_data["delivery_korea_rub"] = 100000 * krw_rub_rate
+    car_data[user_id]["delivery_korea_usd"] = 100000 * krw_rub_rate / usd_rate
+    car_data[user_id]["delivery_korea_krw"] = 100000
+    car_data[user_id]["delivery_korea_rub"] = 100000 * krw_rub_rate
 
-    car_data["transfer_korea_usd"] = 350000 * krw_rub_rate / usd_rate
-    car_data["transfer_korea_krw"] = 350000
-    car_data["transfer_korea_rub"] = 350000 * krw_rub_rate
+    car_data[user_id]["transfer_korea_usd"] = 350000 * krw_rub_rate / usd_rate
+    car_data[user_id]["transfer_korea_krw"] = 350000
+    car_data[user_id]["transfer_korea_rub"] = 350000 * krw_rub_rate
 
-    car_data["freight_korea_usd"] = 600
-    car_data["freight_korea_krw"] = 600 * usd_rate / krw_rub_rate
-    car_data["freight_korea_rub"] = 600 * usd_rate
+    car_data[user_id]["freight_korea_usd"] = 600
+    car_data[user_id]["freight_korea_krw"] = 600 * usd_rate / krw_rub_rate
+    car_data[user_id]["freight_korea_rub"] = 600 * usd_rate
 
-    car_data["korea_total_usd"] = (
+    car_data[user_id]["korea_total_usd"] = (
         (50000 / usd_rate)
         + ((price_krw) * krw_rub_rate / usd_rate)
         + (440000 * krw_rub_rate / usd_rate)
@@ -2886,7 +2902,7 @@ def calculate_manual_cost(user_id):
         + (600)
     )
 
-    car_data["korea_total_krw"] = (
+    car_data[user_id]["korea_total_krw"] = (
         (50000 / krw_rub_rate)
         + (price_krw)
         + (440000)
@@ -2895,7 +2911,7 @@ def calculate_manual_cost(user_id):
         + (600 * usd_rate / krw_rub_rate)
     )
 
-    car_data["korea_total_rub"] = (
+    car_data[user_id]["korea_total_rub"] = (
         (50000)
         + (price_krw * krw_rub_rate)
         + (440000 * krw_rub_rate)
@@ -2905,39 +2921,39 @@ def calculate_manual_cost(user_id):
     )
 
     # Расходы Россия
-    car_data["customs_duty_usd"] = customs_duty / usd_rate
-    car_data["customs_duty_krw"] = customs_duty * rub_to_krw_rate
-    car_data["customs_duty_rub"] = customs_duty
+    car_data[user_id]["customs_duty_usd"] = customs_duty / usd_rate
+    car_data[user_id]["customs_duty_krw"] = customs_duty * rub_to_krw_rate
+    car_data[user_id]["customs_duty_rub"] = customs_duty
 
-    car_data["customs_fee_usd"] = customs_fee / usd_rate
-    car_data["customs_fee_krw"] = customs_fee / krw_rub_rate
-    car_data["customs_fee_rub"] = customs_fee
+    car_data[user_id]["customs_fee_usd"] = customs_fee / usd_rate
+    car_data[user_id]["customs_fee_krw"] = customs_fee / krw_rub_rate
+    car_data[user_id]["customs_fee_rub"] = customs_fee
 
-    car_data["util_fee_usd"] = recycling_fee / usd_rate
-    car_data["util_fee_krw"] = recycling_fee / krw_rub_rate
-    car_data["util_fee_rub"] = recycling_fee
+    car_data[user_id]["util_fee_usd"] = recycling_fee / usd_rate
+    car_data[user_id]["util_fee_krw"] = recycling_fee / krw_rub_rate
+    car_data[user_id]["util_fee_rub"] = recycling_fee
 
-    car_data["broker_russia_usd"] = (
+    car_data[user_id]["broker_russia_usd"] = (
         ((customs_duty + customs_fee + recycling_fee) / 100) * 1.5 + 30000
     ) / usd_rate
-    car_data["broker_russia_krw"] = (
+    car_data[user_id]["broker_russia_krw"] = (
         ((customs_duty + customs_fee + recycling_fee) / 100) * 1.5 + 30000
     ) * rub_to_krw_rate
-    car_data["broker_russia_rub"] = (
+    car_data[user_id]["broker_russia_rub"] = (
         (customs_duty + customs_fee + recycling_fee) / 100
     ) * 1.5 + 30000
 
-    car_data["svh_russia_usd"] = 50000 / usd_rate
-    car_data["svh_russia_krw"] = 50000 / krw_rub_rate
-    car_data["svh_russia_rub"] = 50000
+    car_data[user_id]["svh_russia_usd"] = 50000 / usd_rate
+    car_data[user_id]["svh_russia_krw"] = 50000 / krw_rub_rate
+    car_data[user_id]["svh_russia_rub"] = 50000
 
-    car_data["lab_russia_usd"] = 30000 / usd_rate
-    car_data["lab_russia_krw"] = 30000 / krw_rub_rate
-    car_data["lab_russia_rub"] = 30000
+    car_data[user_id]["lab_russia_usd"] = 30000 / usd_rate
+    car_data[user_id]["lab_russia_krw"] = 30000 / krw_rub_rate
+    car_data[user_id]["lab_russia_rub"] = 30000
 
-    car_data["perm_registration_russia_usd"] = 8000 / usd_rate
-    car_data["perm_registration_russia_krw"] = 8000 / krw_rub_rate
-    car_data["perm_registration_russia_rub"] = 8000
+    car_data[user_id]["perm_registration_russia_usd"] = 8000 / usd_rate
+    car_data[user_id]["perm_registration_russia_krw"] = 8000 / krw_rub_rate
+    car_data[user_id]["perm_registration_russia_rub"] = 8000
 
     # Get fuel type name for display
     fuel_type_name = FUEL_TYPE_NAMES.get(fuel_type, "Бензин")
