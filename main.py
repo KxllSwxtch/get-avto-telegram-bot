@@ -1,6 +1,7 @@
 import threading
 import time
 import telebot
+from telebot import apihelper
 import psycopg2
 import os
 import re
@@ -114,7 +115,16 @@ logging.basicConfig(
 # Load keys from .env file
 load_dotenv()
 bot_token = os.getenv("BOT_TOKEN")
-bot = telebot.TeleBot(bot_token)
+
+
+class BotExceptionHandler(telebot.ExceptionHandler):
+    def handle(self, exception):
+        logging.error(f"Bot polling exception: {exception}")
+        return True
+
+
+bot = telebot.TeleBot(bot_token, exception_handler=BotExceptionHandler())
+apihelper.SESSION_TIME_TO_LIVE = 5 * 60  # Recreate HTTP session every 5 min to prevent ConnectionResetError
 
 # Set locale for number formatting
 locale.setlocale(locale.LC_ALL, "en_US.UTF-8")
@@ -3006,4 +3016,4 @@ if __name__ == "__main__":
     rub_to_krw_rate = get_rub_to_krw_rate()
     get_currency_rates()
     set_bot_commands()
-    bot.polling(non_stop=True)
+    bot.infinity_polling(timeout=30, long_polling_timeout=30)
