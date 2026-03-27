@@ -1188,7 +1188,45 @@ def process_hp_input_for_url(message):
     After HP validation, shows fuel type selection keyboard.
     """
     user_id = message.chat.id
+
+    # Guard: non-text messages (photos, stickers, etc.)
+    if message.text is None:
+        bot.send_message(
+            user_id,
+            "Пожалуйста, введите корректное значение мощности (от 50 до 1000 л.с.):"
+        )
+        bot.register_next_step_handler(message, process_hp_input_for_url)
+        return
+
     user_input = message.text.strip()
+
+    # Check if user clicked a menu button
+    if is_menu_button(user_input):
+        bot.clear_step_handler_by_chat_id(user_id)
+        pending_hp_requests.pop(user_id, None)
+        handle_message(message)
+        return
+
+    # Check if user sent an Encar URL
+    if re.match(r"^https?://(www|fem)\.encar\.com/.*", user_input):
+        bot.clear_step_handler_by_chat_id(user_id)
+        pending_hp_requests.pop(user_id, None)
+        handle_message(message)
+        return
+
+    # Check if user sent a Che168 URL
+    if is_che168_url(user_input):
+        bot.clear_step_handler_by_chat_id(user_id)
+        pending_hp_requests.pop(user_id, None)
+        handle_message(message)
+        return
+
+    # Check if user sent a bot command
+    if user_input.startswith('/'):
+        bot.clear_step_handler_by_chat_id(user_id)
+        pending_hp_requests.pop(user_id, None)
+        handle_message(message)
+        return
 
     # Validate HP input
     if not user_input.isdigit() or not (50 <= int(user_input) <= 1000):
@@ -1646,7 +1684,45 @@ def calculate_china_cost(link, message):
 def process_china_hp_input(message):
     """Handle HP input for China car calculation."""
     user_id = message.chat.id
+
+    # Guard: non-text messages (photos, stickers, etc.)
+    if message.text is None:
+        bot.send_message(
+            user_id,
+            "Пожалуйста, введите корректное значение мощности (от 50 до 1000 л.с.):"
+        )
+        bot.register_next_step_handler(message, process_china_hp_input)
+        return
+
     user_input = message.text.strip()
+
+    # Check if user clicked a menu button
+    if is_menu_button(user_input):
+        bot.clear_step_handler_by_chat_id(user_id)
+        pending_china_hp_requests.pop(user_id, None)
+        handle_message(message)
+        return
+
+    # Check if user sent an Encar URL
+    if re.match(r"^https?://(www|fem)\.encar\.com/.*", user_input):
+        bot.clear_step_handler_by_chat_id(user_id)
+        pending_china_hp_requests.pop(user_id, None)
+        handle_message(message)
+        return
+
+    # Check if user sent a Che168 URL
+    if is_che168_url(user_input):
+        bot.clear_step_handler_by_chat_id(user_id)
+        pending_china_hp_requests.pop(user_id, None)
+        handle_message(message)
+        return
+
+    # Check if user sent a bot command
+    if user_input.startswith('/'):
+        bot.clear_step_handler_by_chat_id(user_id)
+        pending_china_hp_requests.pop(user_id, None)
+        handle_message(message)
+        return
 
     # Validate HP input
     if not user_input.isdigit() or not (50 <= int(user_input) <= 1000):
