@@ -90,7 +90,7 @@ def get_pan_auto_car_data(car_id):
     :param car_id: Encar car ID (e.g., "41074555")
     :return: dict with car data or None if not found
     """
-    url = f"https://zefir.pan-auto.ru/api/cars/{car_id}/"
+    url = f"https://zefir.pan-auto.ru/api/korea/{car_id}/"
 
     headers = {
         "Accept": "*/*",
