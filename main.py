@@ -1252,33 +1252,40 @@ def process_hp_input_for_url(message):
     manufacturer = pending_data.get("manufacturer", "")
     model = pending_data.get("model", "")
 
-    # Unpack car info to get engine displacement and year for caching
-    (
-        car_price,
-        car_engine_displacement,
-        formatted_car_date,
-        _,  # car_title from encar
-        formatted_mileage,
-        formatted_transmission,
-        car_photos,
-        year,
-        month,
-    ) = car_info
+    try:
+        # Unpack car info to get engine displacement and year for caching
+        (
+            car_price,
+            car_engine_displacement,
+            formatted_car_date,
+            _,  # car_title from encar
+            formatted_mileage,
+            formatted_transmission,
+            car_photos,
+            year,
+            month,
+            _v_no,
+            _v_id,
+        ) = car_info
 
-    car_engine_displacement = int(car_engine_displacement)
-    full_year = int(f"20{year}")
+        car_engine_displacement = int(car_engine_displacement)
+        full_year = int(f"20{year}")
 
-    # ONLY save HP to cache if user is a MANAGER (trusted source)
-    if user_id in MANAGERS and manufacturer and model:
-        save_hp_to_cache(manufacturer, model, car_engine_displacement, full_year, hp)
-        bot.send_message(user_id, f"✅ Мощность {hp} л.с. сохранена в базу данных.")
+        # ONLY save HP to cache if user is a MANAGER (trusted source)
+        if user_id in MANAGERS and manufacturer and model:
+            save_hp_to_cache(manufacturer, model, car_engine_displacement, full_year, hp)
+            bot.send_message(user_id, f"✅ Мощность {hp} л.с. сохранена в базу данных.")
 
-    # Show fuel type selection keyboard
-    bot.send_message(
-        user_id,
-        "Выберите тип двигателя:",
-        reply_markup=create_fuel_type_keyboard()
-    )
+        # Show fuel type selection keyboard
+        bot.send_message(
+            user_id,
+            "Выберите тип двигателя:",
+            reply_markup=create_fuel_type_keyboard()
+        )
+    except Exception as e:
+        logging.error(f"Error in process_hp_input_for_url for user {user_id}: {e}")
+        pending_hp_requests.pop(user_id, None)
+        bot.send_message(user_id, "Произошла ошибка при обработке данных. Попробуйте снова.")
 
 
 def complete_url_calculation(user_id, message):
