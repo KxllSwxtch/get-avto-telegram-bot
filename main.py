@@ -18,6 +18,7 @@ from dotenv import load_dotenv
 from urllib.parse import urlparse, parse_qs
 from get_google_krwrub_rate import get_krwrub_rate
 from get_google_usdrub_rate import get_usdrub_rate
+from get_google_fees import get_russia_fees
 from get_vtb_cnyrub_rate import get_vtb_cnyrub_rate
 from che168_scraper import (
     get_che168_car_info,
@@ -144,6 +145,7 @@ krw_rub_rate = None
 eur_rub_rate = None
 rub_to_krw_rate = None
 cny_rub_rate = None  # CNY to RUB rate for Chinese cars
+russia_fees = {"broker_rub": 17146, "svh_rub": 35000, "lab_rub": 20000, "perm_registration_rub": 8000}
 
 vehicle_id = {}  # user_id -> vehicle_id
 vehicle_no = {}  # user_id -> vehicle_no
@@ -540,7 +542,7 @@ def set_bot_commands():
 
 # Функция для получения курсов валют с API
 def get_currency_rates():
-    global usd_rate, krw_rub_rate, eur_rub_rate, cny_rub_rate
+    global usd_rate, krw_rub_rate, eur_rub_rate, cny_rub_rate, russia_fees
 
     print_message("ПОЛУЧАЕМ КУРС ЦБ")
 
@@ -580,6 +582,11 @@ def get_currency_rates():
     cny_rub_rate = cny
 
     eur_rub_rate = eur
+
+    # Fetch Russia fees from Google Sheets
+    fees = get_russia_fees()
+    if fees:
+        russia_fees = fees
 
     # Check if rates were successfully fetched
     if usd is None or krw is None or eur is None:
@@ -1070,27 +1077,26 @@ def calculate_cost_with_pan_auto(pan_auto_data, car_id, message):
     car_data[user_id]["util_fee_krw"] = recycling_fee / krw_rub_rate
     car_data[user_id]["util_fee_rub"] = recycling_fee
 
-    car_data[user_id]["broker_russia_usd"] = (
-        ((customs_duty + customs_fee + recycling_fee) / 100) * 1.5 + 30000
-    ) / usd_rate
-    car_data[user_id]["broker_russia_krw"] = (
-        ((customs_duty + customs_fee + recycling_fee) / 100) * 1.5 + 30000
-    ) * rub_to_krw_rate
-    car_data[user_id]["broker_russia_rub"] = (
-        (customs_duty + customs_fee + recycling_fee) / 100
-    ) * 1.5 + 30000
+    broker_rub = russia_fees["broker_rub"]
+    svh_rub = russia_fees["svh_rub"]
+    lab_rub = russia_fees["lab_rub"]
+    perm_reg_rub = russia_fees["perm_registration_rub"]
 
-    car_data[user_id]["svh_russia_usd"] = 50000 / usd_rate
-    car_data[user_id]["svh_russia_krw"] = 50000 / krw_rub_rate
-    car_data[user_id]["svh_russia_rub"] = 50000
+    car_data[user_id]["broker_russia_usd"] = broker_rub / usd_rate
+    car_data[user_id]["broker_russia_krw"] = broker_rub * rub_to_krw_rate
+    car_data[user_id]["broker_russia_rub"] = broker_rub
 
-    car_data[user_id]["lab_russia_usd"] = 30000 / usd_rate
-    car_data[user_id]["lab_russia_krw"] = 30000 / krw_rub_rate
-    car_data[user_id]["lab_russia_rub"] = 30000
+    car_data[user_id]["svh_russia_usd"] = svh_rub / usd_rate
+    car_data[user_id]["svh_russia_krw"] = svh_rub / krw_rub_rate
+    car_data[user_id]["svh_russia_rub"] = svh_rub
 
-    car_data[user_id]["perm_registration_russia_usd"] = 8000 / usd_rate
-    car_data[user_id]["perm_registration_russia_krw"] = 8000 / krw_rub_rate
-    car_data[user_id]["perm_registration_russia_rub"] = 8000
+    car_data[user_id]["lab_russia_usd"] = lab_rub / usd_rate
+    car_data[user_id]["lab_russia_krw"] = lab_rub / krw_rub_rate
+    car_data[user_id]["lab_russia_rub"] = lab_rub
+
+    car_data[user_id]["perm_registration_russia_usd"] = perm_reg_rub / usd_rate
+    car_data[user_id]["perm_registration_russia_krw"] = perm_reg_rub / krw_rub_rate
+    car_data[user_id]["perm_registration_russia_rub"] = perm_reg_rub
 
     preview_link = f"https://fem.encar.com/cars/detail/{car_id}"
 
@@ -1463,27 +1469,26 @@ def complete_url_calculation(user_id, message):
     car_data[user_id]["util_fee_krw"] = recycling_fee / krw_rub_rate
     car_data[user_id]["util_fee_rub"] = recycling_fee
 
-    car_data[user_id]["broker_russia_usd"] = (
-        ((customs_duty + customs_fee + recycling_fee) / 100) * 1.5 + 30000
-    ) / usd_rate
-    car_data[user_id]["broker_russia_krw"] = (
-        ((customs_duty + customs_fee + recycling_fee) / 100) * 1.5 + 30000
-    ) * rub_to_krw_rate
-    car_data[user_id]["broker_russia_rub"] = (
-        (customs_duty + customs_fee + recycling_fee) / 100
-    ) * 1.5 + 30000
+    broker_rub = russia_fees["broker_rub"]
+    svh_rub = russia_fees["svh_rub"]
+    lab_rub = russia_fees["lab_rub"]
+    perm_reg_rub = russia_fees["perm_registration_rub"]
 
-    car_data[user_id]["svh_russia_usd"] = 50000 / usd_rate
-    car_data[user_id]["svh_russia_krw"] = 50000 / krw_rub_rate
-    car_data[user_id]["svh_russia_rub"] = 50000
+    car_data[user_id]["broker_russia_usd"] = broker_rub / usd_rate
+    car_data[user_id]["broker_russia_krw"] = broker_rub * rub_to_krw_rate
+    car_data[user_id]["broker_russia_rub"] = broker_rub
 
-    car_data[user_id]["lab_russia_usd"] = 30000 / usd_rate
-    car_data[user_id]["lab_russia_krw"] = 30000 / krw_rub_rate
-    car_data[user_id]["lab_russia_rub"] = 30000
+    car_data[user_id]["svh_russia_usd"] = svh_rub / usd_rate
+    car_data[user_id]["svh_russia_krw"] = svh_rub / krw_rub_rate
+    car_data[user_id]["svh_russia_rub"] = svh_rub
 
-    car_data[user_id]["perm_registration_russia_usd"] = 8000 / usd_rate
-    car_data[user_id]["perm_registration_russia_krw"] = 8000 / krw_rub_rate
-    car_data[user_id]["perm_registration_russia_rub"] = 8000
+    car_data[user_id]["lab_russia_usd"] = lab_rub / usd_rate
+    car_data[user_id]["lab_russia_krw"] = lab_rub / krw_rub_rate
+    car_data[user_id]["lab_russia_rub"] = lab_rub
+
+    car_data[user_id]["perm_registration_russia_usd"] = perm_reg_rub / usd_rate
+    car_data[user_id]["perm_registration_russia_krw"] = perm_reg_rub / krw_rub_rate
+    car_data[user_id]["perm_registration_russia_rub"] = perm_reg_rub
 
     preview_link = f"https://fem.encar.com/cars/detail/{car_id}"
 
@@ -3037,27 +3042,26 @@ def calculate_manual_cost(user_id):
     car_data[user_id]["util_fee_krw"] = recycling_fee / krw_rub_rate
     car_data[user_id]["util_fee_rub"] = recycling_fee
 
-    car_data[user_id]["broker_russia_usd"] = (
-        ((customs_duty + customs_fee + recycling_fee) / 100) * 1.5 + 30000
-    ) / usd_rate
-    car_data[user_id]["broker_russia_krw"] = (
-        ((customs_duty + customs_fee + recycling_fee) / 100) * 1.5 + 30000
-    ) * rub_to_krw_rate
-    car_data[user_id]["broker_russia_rub"] = (
-        (customs_duty + customs_fee + recycling_fee) / 100
-    ) * 1.5 + 30000
+    broker_rub = russia_fees["broker_rub"]
+    svh_rub = russia_fees["svh_rub"]
+    lab_rub = russia_fees["lab_rub"]
+    perm_reg_rub = russia_fees["perm_registration_rub"]
 
-    car_data[user_id]["svh_russia_usd"] = 50000 / usd_rate
-    car_data[user_id]["svh_russia_krw"] = 50000 / krw_rub_rate
-    car_data[user_id]["svh_russia_rub"] = 50000
+    car_data[user_id]["broker_russia_usd"] = broker_rub / usd_rate
+    car_data[user_id]["broker_russia_krw"] = broker_rub * rub_to_krw_rate
+    car_data[user_id]["broker_russia_rub"] = broker_rub
 
-    car_data[user_id]["lab_russia_usd"] = 30000 / usd_rate
-    car_data[user_id]["lab_russia_krw"] = 30000 / krw_rub_rate
-    car_data[user_id]["lab_russia_rub"] = 30000
+    car_data[user_id]["svh_russia_usd"] = svh_rub / usd_rate
+    car_data[user_id]["svh_russia_krw"] = svh_rub / krw_rub_rate
+    car_data[user_id]["svh_russia_rub"] = svh_rub
 
-    car_data[user_id]["perm_registration_russia_usd"] = 8000 / usd_rate
-    car_data[user_id]["perm_registration_russia_krw"] = 8000 / krw_rub_rate
-    car_data[user_id]["perm_registration_russia_rub"] = 8000
+    car_data[user_id]["lab_russia_usd"] = lab_rub / usd_rate
+    car_data[user_id]["lab_russia_krw"] = lab_rub / krw_rub_rate
+    car_data[user_id]["lab_russia_rub"] = lab_rub
+
+    car_data[user_id]["perm_registration_russia_usd"] = perm_reg_rub / usd_rate
+    car_data[user_id]["perm_registration_russia_krw"] = perm_reg_rub / krw_rub_rate
+    car_data[user_id]["perm_registration_russia_rub"] = perm_reg_rub
 
     # Get fuel type name for display
     fuel_type_name = FUEL_TYPE_NAMES.get(fuel_type, "Бензин")
