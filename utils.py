@@ -1,6 +1,7 @@
 import requests
 import datetime
 import locale
+import logging
 import math
 import gc
 import time
@@ -307,30 +308,53 @@ def extract_pan_auto_costs(costs_rub):
 
 def parse_pan_auto_year_month(pan_auto_data):
     """
-    Извлекает год и месяц из данных pan-auto.ru API.
+    Извлекает дату выпуска (год и месяц производства) из ответа pan-auto.ru API.
 
-    formYear может быть "202406" (YYYYMM) или "2023" (YYYY).
-    Если месяц не указан в formYear, пытается извлечь из поля year ("Июнь, 2023 год").
+    Основной источник — поле `year` в формате "<Месяц>, <YYYY> год"
+    (например, "Декабрь, 2022 год") — это реальная дата производства,
+    которая нужна для расчёта возраста на таможне.
+
+    Поле `formYear` (например, "2023") — это модельный год, маркетинговый
+    лейбл корейского рынка, который часто на 1 год больше года производства.
+    Используется только как запасной вариант, и возраст в этом случае может
+    быть посчитан с погрешностью до года.
 
     :param pan_auto_data: dict ответа pan-auto.ru API
-    :return: (year: int, month: str)  — month в формате "01"-"12"
+    :return: (year: int, month: str) — month в формате "01"-"12"
     """
-    form_year = str(pan_auto_data.get("formYear", ""))
     year_field = str(pan_auto_data.get("year", ""))
+    form_year = str(pan_auto_data.get("formYear", ""))
 
-    year = 0
-    month = "01"
+    year = None
+    month = None
 
-    if form_year and len(form_year) >= 6:
-        year = int(form_year[:4])
-        month = form_year[4:6]
-    elif form_year and len(form_year) >= 4:
-        year = int(form_year[:4])
-        # Try to extract month from the "year" field (e.g., "Июнь, 2023 год")
-        for rus_month, num in RUSSIAN_MONTHS.items():
-            if rus_month in year_field:
-                month = num
-                break
+    year_match = re.search(r"(19|20)\d{2}", year_field)
+    if year_match:
+        year = int(year_match.group(0))
+    year_field_lower = year_field.lower()
+    for rus_month, num in RUSSIAN_MONTHS.items():
+        if rus_month.lower() in year_field_lower:
+            month = num
+            break
+
+    if year is None:
+        logging.warning(
+            "parse_pan_auto_year_month: поле 'year' пустое или нераспознано (%r), "
+            "используем formYear=%r как запасной вариант (модельный год, не дата производства)",
+            year_field,
+            form_year,
+        )
+        if len(form_year) >= 6:
+            year = int(form_year[:4])
+            month = form_year[4:6]
+        elif len(form_year) >= 4:
+            year = int(form_year[:4])
+
+    if year is None:
+        year = 0
+    if month is None:
+        month = "01"
+
     return (year, month)
 
 
