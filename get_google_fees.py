@@ -5,9 +5,11 @@ from io import StringIO
 # ID Google Таблицы с расходами по России
 SPREADSHEET_ID = "1jB87xWjsGfvrxdpJnNsdjlY3P4o4fDEdkdsStHELdb4"
 
-# Fallback defaults
+# Fallback defaults.
+# Note: broker fee is no longer fetched here — it's computed by
+# utils.compute_broker_fee (1.5% of customs sum + 15,000 ₽) to match the
+# manager's Google Sheets pricing table.
 DEFAULT_FEES = {
-    "broker_rub": 17146,
     "svh_rub": 35000,
     "lab_rub": 20000,
     "perm_registration_rub": 8000,
@@ -34,13 +36,11 @@ def get_russia_fees():
             reader = csv.reader(StringIO(csv_data))
             table = list(reader)
 
-            broker_rub = _parse_rub_value(table[22][5])
             svh_rub = _parse_rub_value(table[23][5])
             lab_rub = _parse_rub_value(table[24][5])
             perm_registration_rub = _parse_rub_value(table[25][5])
 
             fees = {
-                "broker_rub": broker_rub,
                 "svh_rub": svh_rub,
                 "lab_rub": lab_rub,
                 "perm_registration_rub": perm_registration_rub,

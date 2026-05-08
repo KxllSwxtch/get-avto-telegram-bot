@@ -48,6 +48,13 @@ from utils import (
     FUEL_TYPE_HYBRID_SERIES,
     FUEL_TYPE_HYBRID_PARALLEL,
     FUEL_TYPE_NAMES,
+    compute_turnkey_total,
+    compute_broker_fee,
+    AGENT_FEE_RUB,
+    DEALER_KRW,
+    KOREA_DELIVERY_KRW,
+    TRANSFER_TO_PORT_KRW,
+    SEA_FREIGHT_USD,
 )
 
 
@@ -145,7 +152,7 @@ krw_rub_rate = None
 eur_rub_rate = None
 rub_to_krw_rate = None
 cny_rub_rate = None  # CNY to RUB rate for Chinese cars
-russia_fees = {"broker_rub": 17146, "svh_rub": 35000, "lab_rub": 20000, "perm_registration_rub": 8000}
+russia_fees = {"svh_rub": 35000, "lab_rub": 20000, "perm_registration_rub": 8000}
 
 vehicle_id = {}  # user_id -> vehicle_id
 vehicle_no = {}  # user_id -> vehicle_no
@@ -998,27 +1005,23 @@ def calculate_cost_with_pan_auto(pan_auto_data, car_id, message):
             "month": month,
         }
 
-    # Calculate total cost
-    total_cost = (
-        (price_krw * krw_rub_rate)
-        + (440000 * krw_rub_rate)
-        + (100000 * krw_rub_rate)
-        + (350000 * krw_rub_rate)
-        + (600 * usd_rate)
-        + customs_duty
-        + customs_fee
-        + recycling_fee
-        + (461 * usd_rate)
-        + 50000
-        + 30000
-        + 8000
+    # Calculate total cost via the canonical pricing helper.
+    pricing = compute_turnkey_total(
+        price_krw=price_krw,
+        krw_rub=krw_rub_rate,
+        usd_rub=usd_rate,
+        customs_duty_rub=customs_duty,
+        customs_fee_rub=customs_fee,
+        recycling_fee_rub=recycling_fee,
+        russia_fees=russia_fees,
     )
+    total_cost = pricing["total_rub"]
 
     # Store car_data for detail view (per-user)
     car_data[user_id] = {}
-    car_data[user_id]["agent_korea_rub"] = 50000
-    car_data[user_id]["agent_korea_usd"] = 50000 / usd_rate
-    car_data[user_id]["agent_korea_krw"] = 50000 / krw_rub_rate
+    car_data[user_id]["agent_korea_rub"] = AGENT_FEE_RUB
+    car_data[user_id]["agent_korea_usd"] = AGENT_FEE_RUB / usd_rate
+    car_data[user_id]["agent_korea_krw"] = AGENT_FEE_RUB / krw_rub_rate
 
     car_data[user_id]["advance_rub"] = 1000000 * krw_rub_rate
     car_data[user_id]["advance_usd"] = (1000000 * krw_rub_rate) / usd_rate
@@ -1028,41 +1031,25 @@ def calculate_cost_with_pan_auto(pan_auto_data, car_id, message):
     car_data[user_id]["car_price_usd"] = (price_krw - 1000000) * krw_rub_rate / usd_rate
     car_data[user_id]["car_price_rub"] = (price_krw - 1000000) * krw_rub_rate
 
-    car_data[user_id]["dealer_korea_usd"] = 440000 * krw_rub_rate / usd_rate
-    car_data[user_id]["dealer_korea_krw"] = 440000
-    car_data[user_id]["dealer_korea_rub"] = 440000 * krw_rub_rate
+    car_data[user_id]["dealer_korea_usd"] = DEALER_KRW * krw_rub_rate / usd_rate
+    car_data[user_id]["dealer_korea_krw"] = DEALER_KRW
+    car_data[user_id]["dealer_korea_rub"] = DEALER_KRW * krw_rub_rate
 
-    car_data[user_id]["delivery_korea_usd"] = 100000 * krw_rub_rate / usd_rate
-    car_data[user_id]["delivery_korea_krw"] = 100000
-    car_data[user_id]["delivery_korea_rub"] = 100000 * krw_rub_rate
+    car_data[user_id]["delivery_korea_usd"] = KOREA_DELIVERY_KRW * krw_rub_rate / usd_rate
+    car_data[user_id]["delivery_korea_krw"] = KOREA_DELIVERY_KRW
+    car_data[user_id]["delivery_korea_rub"] = KOREA_DELIVERY_KRW * krw_rub_rate
 
-    car_data[user_id]["transfer_korea_usd"] = 350000 * krw_rub_rate / usd_rate
-    car_data[user_id]["transfer_korea_krw"] = 350000
-    car_data[user_id]["transfer_korea_rub"] = 350000 * krw_rub_rate
+    car_data[user_id]["transfer_korea_usd"] = TRANSFER_TO_PORT_KRW * krw_rub_rate / usd_rate
+    car_data[user_id]["transfer_korea_krw"] = TRANSFER_TO_PORT_KRW
+    car_data[user_id]["transfer_korea_rub"] = TRANSFER_TO_PORT_KRW * krw_rub_rate
 
-    car_data[user_id]["freight_korea_usd"] = 600
-    car_data[user_id]["freight_korea_krw"] = 600 * usd_rate / krw_rub_rate
-    car_data[user_id]["freight_korea_rub"] = 600 * usd_rate
+    car_data[user_id]["freight_korea_usd"] = SEA_FREIGHT_USD
+    car_data[user_id]["freight_korea_krw"] = SEA_FREIGHT_USD * usd_rate / krw_rub_rate
+    car_data[user_id]["freight_korea_rub"] = SEA_FREIGHT_USD * usd_rate
 
-    car_data[user_id]["korea_total_usd"] = (
-        ((price_krw) * krw_rub_rate / usd_rate)
-        + (440000 * krw_rub_rate / usd_rate)
-        + (100000 * krw_rub_rate / usd_rate)
-        + (350000 * krw_rub_rate / usd_rate)
-        + (600)
-    )
-
-    car_data[user_id]["korea_total_krw"] = (
-        (price_krw) + (440000) + (100000) + 350000 + (600 * usd_rate / krw_rub_rate)
-    )
-
-    car_data[user_id]["korea_total_rub"] = (
-        +(price_krw * krw_rub_rate)
-        + (440000 * krw_rub_rate)
-        + (100000 * krw_rub_rate)
-        + (350000 * krw_rub_rate)
-        + (600 * usd_rate)
-    )
+    car_data[user_id]["korea_total_usd"] = pricing["korea_operating_rub"] / usd_rate
+    car_data[user_id]["korea_total_krw"] = pricing["korea_operating_rub"] / krw_rub_rate
+    car_data[user_id]["korea_total_rub"] = pricing["korea_operating_rub"]
 
     # Russia expenses
     car_data[user_id]["customs_duty_usd"] = customs_duty / usd_rate
@@ -1077,7 +1064,7 @@ def calculate_cost_with_pan_auto(pan_auto_data, car_id, message):
     car_data[user_id]["util_fee_krw"] = recycling_fee / krw_rub_rate
     car_data[user_id]["util_fee_rub"] = recycling_fee
 
-    broker_rub = russia_fees["broker_rub"]
+    broker_rub = pricing["broker_rub"]
     svh_rub = russia_fees["svh_rub"]
     lab_rub = russia_fees["lab_rub"]
     perm_reg_rub = russia_fees["perm_registration_rub"]
@@ -1390,27 +1377,23 @@ def complete_url_calculation(user_id, message):
     price_usd = price_krw * krw_rub_rate / usd_rate
     engine_volume_formatted = f"{format_number(car_engine_displacement)} cc"
 
-    # Calculate total cost
-    total_cost = (
-        (price_krw * krw_rub_rate)
-        + (440000 * krw_rub_rate)
-        + (100000 * krw_rub_rate)
-        + (350000 * krw_rub_rate)
-        + (600 * usd_rate)
-        + customs_duty
-        + customs_fee
-        + recycling_fee
-        + (461 * usd_rate)
-        + 50000
-        + 30000
-        + 8000
+    # Calculate total cost via the canonical pricing helper.
+    pricing = compute_turnkey_total(
+        price_krw=price_krw,
+        krw_rub=krw_rub_rate,
+        usd_rub=usd_rate,
+        customs_duty_rub=customs_duty,
+        customs_fee_rub=customs_fee,
+        recycling_fee_rub=recycling_fee,
+        russia_fees=russia_fees,
     )
+    total_cost = pricing["total_rub"]
 
     # Store car_data for detail view (per-user)
     car_data[user_id] = {}
-    car_data[user_id]["agent_korea_rub"] = 50000
-    car_data[user_id]["agent_korea_usd"] = 50000 / usd_rate
-    car_data[user_id]["agent_korea_krw"] = 50000 / krw_rub_rate
+    car_data[user_id]["agent_korea_rub"] = AGENT_FEE_RUB
+    car_data[user_id]["agent_korea_usd"] = AGENT_FEE_RUB / usd_rate
+    car_data[user_id]["agent_korea_krw"] = AGENT_FEE_RUB / krw_rub_rate
 
     car_data[user_id]["advance_rub"] = 1000000 * krw_rub_rate
     car_data[user_id]["advance_usd"] = (1000000 * krw_rub_rate) / usd_rate
@@ -1420,41 +1403,25 @@ def complete_url_calculation(user_id, message):
     car_data[user_id]["car_price_usd"] = (price_krw - 1000000) * krw_rub_rate / usd_rate
     car_data[user_id]["car_price_rub"] = (price_krw - 1000000) * krw_rub_rate
 
-    car_data[user_id]["dealer_korea_usd"] = 440000 * krw_rub_rate / usd_rate
-    car_data[user_id]["dealer_korea_krw"] = 440000
-    car_data[user_id]["dealer_korea_rub"] = 440000 * krw_rub_rate
+    car_data[user_id]["dealer_korea_usd"] = DEALER_KRW * krw_rub_rate / usd_rate
+    car_data[user_id]["dealer_korea_krw"] = DEALER_KRW
+    car_data[user_id]["dealer_korea_rub"] = DEALER_KRW * krw_rub_rate
 
-    car_data[user_id]["delivery_korea_usd"] = 100000 * krw_rub_rate / usd_rate
-    car_data[user_id]["delivery_korea_krw"] = 100000
-    car_data[user_id]["delivery_korea_rub"] = 100000 * krw_rub_rate
+    car_data[user_id]["delivery_korea_usd"] = KOREA_DELIVERY_KRW * krw_rub_rate / usd_rate
+    car_data[user_id]["delivery_korea_krw"] = KOREA_DELIVERY_KRW
+    car_data[user_id]["delivery_korea_rub"] = KOREA_DELIVERY_KRW * krw_rub_rate
 
-    car_data[user_id]["transfer_korea_usd"] = 350000 * krw_rub_rate / usd_rate
-    car_data[user_id]["transfer_korea_krw"] = 350000
-    car_data[user_id]["transfer_korea_rub"] = 350000 * krw_rub_rate
+    car_data[user_id]["transfer_korea_usd"] = TRANSFER_TO_PORT_KRW * krw_rub_rate / usd_rate
+    car_data[user_id]["transfer_korea_krw"] = TRANSFER_TO_PORT_KRW
+    car_data[user_id]["transfer_korea_rub"] = TRANSFER_TO_PORT_KRW * krw_rub_rate
 
-    car_data[user_id]["freight_korea_usd"] = 600
-    car_data[user_id]["freight_korea_krw"] = 600 * usd_rate / krw_rub_rate
-    car_data[user_id]["freight_korea_rub"] = 600 * usd_rate
+    car_data[user_id]["freight_korea_usd"] = SEA_FREIGHT_USD
+    car_data[user_id]["freight_korea_krw"] = SEA_FREIGHT_USD * usd_rate / krw_rub_rate
+    car_data[user_id]["freight_korea_rub"] = SEA_FREIGHT_USD * usd_rate
 
-    car_data[user_id]["korea_total_usd"] = (
-        ((price_krw) * krw_rub_rate / usd_rate)
-        + (440000 * krw_rub_rate / usd_rate)
-        + (100000 * krw_rub_rate / usd_rate)
-        + (350000 * krw_rub_rate / usd_rate)
-        + (600)
-    )
-
-    car_data[user_id]["korea_total_krw"] = (
-        (price_krw) + (440000) + (100000) + 350000 + (600 * usd_rate / krw_rub_rate)
-    )
-
-    car_data[user_id]["korea_total_rub"] = (
-        +(price_krw * krw_rub_rate)
-        + (440000 * krw_rub_rate)
-        + (100000 * krw_rub_rate)
-        + (350000 * krw_rub_rate)
-        + (600 * usd_rate)
-    )
+    car_data[user_id]["korea_total_usd"] = pricing["korea_operating_rub"] / usd_rate
+    car_data[user_id]["korea_total_krw"] = pricing["korea_operating_rub"] / krw_rub_rate
+    car_data[user_id]["korea_total_rub"] = pricing["korea_operating_rub"]
 
     # Russia expenses
     car_data[user_id]["customs_duty_usd"] = customs_duty / usd_rate
@@ -1469,7 +1436,7 @@ def complete_url_calculation(user_id, message):
     car_data[user_id]["util_fee_krw"] = recycling_fee / krw_rub_rate
     car_data[user_id]["util_fee_rub"] = recycling_fee
 
-    broker_rub = russia_fees["broker_rub"]
+    broker_rub = pricing["broker_rub"]
     svh_rub = russia_fees["svh_rub"]
     lab_rub = russia_fees["lab_rub"]
     perm_reg_rub = russia_fees["perm_registration_rub"]
@@ -2335,24 +2302,18 @@ def handle_callback_query(call):
         engine_volume_formatted = f"{format_number(int(engine_volume))} cc"
         price_usd = price_krw * krw_rub_rate / usd_rate
 
-        # Recalculate total cost with lowCosts customs values
-        total_cost = (
-            (price_krw * krw_rub_rate)
-            + (440000 * krw_rub_rate)
-            + (100000 * krw_rub_rate)
-            + (350000 * krw_rub_rate)
-            + (600 * usd_rate)
-            + low_customs_duty
-            + low_customs_fee
-            + low_recycling_fee
-            + (461 * usd_rate)
-            + 50000
-            + 30000
-            + 8000
+        # Recalculate total cost with lowCosts customs values via the canonical helper.
+        pricing = compute_turnkey_total(
+            price_krw=price_krw,
+            krw_rub=krw_rub_rate,
+            usd_rub=usd_rate,
+            customs_duty_rub=low_customs_duty,
+            customs_fee_rub=low_customs_fee,
+            recycling_fee_rub=low_recycling_fee,
+            russia_fees=russia_fees,
         )
-
-        # Recalculate broker fee with lowCosts values
-        broker_rub = ((low_customs_duty + low_customs_fee + low_recycling_fee) / 100) * 1.5 + 30000
+        total_cost = pricing["total_rub"]
+        broker_rub = pricing["broker_rub"]
 
         # Update car_data for "Детали расчёта" (per-user)
         if user_id not in car_data:
@@ -2954,28 +2915,23 @@ def calculate_manual_cost(user_id):
     customs_duty = clean_number(response["tax"])
     recycling_fee = clean_number(response["util"])
 
-    # Расчет итоговой стоимости автомобиля в рублях
-    total_cost = (
-        50000
-        + (price_krw * krw_rub_rate)
-        + (440000 * krw_rub_rate)
-        + (100000 * krw_rub_rate)
-        + (350000 * krw_rub_rate)
-        + (600 * usd_rate)
-        + customs_duty
-        + customs_fee
-        + recycling_fee
-        + (465 * usd_rate)
-        + 50000
-        + 30000
-        + 8000
+    # Расчет итоговой стоимости автомобиля в рублях через канонический helper.
+    pricing = compute_turnkey_total(
+        price_krw=price_krw,
+        krw_rub=krw_rub_rate,
+        usd_rub=usd_rate,
+        customs_duty_rub=customs_duty,
+        customs_fee_rub=customs_fee,
+        recycling_fee_rub=recycling_fee,
+        russia_fees=russia_fees,
     )
+    total_cost = pricing["total_rub"]
 
     # Store car_data for detail view (per-user)
     car_data[user_id] = {}
-    car_data[user_id]["agent_korea_rub"] = 50000
-    car_data[user_id]["agent_korea_usd"] = 50000 / usd_rate
-    car_data[user_id]["agent_korea_krw"] = 50000 / krw_rub_rate
+    car_data[user_id]["agent_korea_rub"] = AGENT_FEE_RUB
+    car_data[user_id]["agent_korea_usd"] = AGENT_FEE_RUB / usd_rate
+    car_data[user_id]["agent_korea_krw"] = AGENT_FEE_RUB / krw_rub_rate
 
     car_data[user_id]["advance_rub"] = 1000000 * krw_rub_rate
     car_data[user_id]["advance_usd"] = (1000000 * krw_rub_rate) / usd_rate
@@ -2986,48 +2942,25 @@ def calculate_manual_cost(user_id):
     car_data[user_id]["car_price_usd"] = (price_krw - 1000000) * krw_rub_rate / usd_rate
     car_data[user_id]["car_price_rub"] = (price_krw - 1000000) * krw_rub_rate
 
-    car_data[user_id]["dealer_korea_usd"] = 440000 * krw_rub_rate / usd_rate
-    car_data[user_id]["dealer_korea_krw"] = 440000
-    car_data[user_id]["dealer_korea_rub"] = 440000 * krw_rub_rate
+    car_data[user_id]["dealer_korea_usd"] = DEALER_KRW * krw_rub_rate / usd_rate
+    car_data[user_id]["dealer_korea_krw"] = DEALER_KRW
+    car_data[user_id]["dealer_korea_rub"] = DEALER_KRW * krw_rub_rate
 
-    car_data[user_id]["delivery_korea_usd"] = 100000 * krw_rub_rate / usd_rate
-    car_data[user_id]["delivery_korea_krw"] = 100000
-    car_data[user_id]["delivery_korea_rub"] = 100000 * krw_rub_rate
+    car_data[user_id]["delivery_korea_usd"] = KOREA_DELIVERY_KRW * krw_rub_rate / usd_rate
+    car_data[user_id]["delivery_korea_krw"] = KOREA_DELIVERY_KRW
+    car_data[user_id]["delivery_korea_rub"] = KOREA_DELIVERY_KRW * krw_rub_rate
 
-    car_data[user_id]["transfer_korea_usd"] = 350000 * krw_rub_rate / usd_rate
-    car_data[user_id]["transfer_korea_krw"] = 350000
-    car_data[user_id]["transfer_korea_rub"] = 350000 * krw_rub_rate
+    car_data[user_id]["transfer_korea_usd"] = TRANSFER_TO_PORT_KRW * krw_rub_rate / usd_rate
+    car_data[user_id]["transfer_korea_krw"] = TRANSFER_TO_PORT_KRW
+    car_data[user_id]["transfer_korea_rub"] = TRANSFER_TO_PORT_KRW * krw_rub_rate
 
-    car_data[user_id]["freight_korea_usd"] = 600
-    car_data[user_id]["freight_korea_krw"] = 600 * usd_rate / krw_rub_rate
-    car_data[user_id]["freight_korea_rub"] = 600 * usd_rate
+    car_data[user_id]["freight_korea_usd"] = SEA_FREIGHT_USD
+    car_data[user_id]["freight_korea_krw"] = SEA_FREIGHT_USD * usd_rate / krw_rub_rate
+    car_data[user_id]["freight_korea_rub"] = SEA_FREIGHT_USD * usd_rate
 
-    car_data[user_id]["korea_total_usd"] = (
-        (50000 / usd_rate)
-        + ((price_krw) * krw_rub_rate / usd_rate)
-        + (440000 * krw_rub_rate / usd_rate)
-        + (100000 * krw_rub_rate / usd_rate)
-        + (350000 * krw_rub_rate / usd_rate)
-        + (600)
-    )
-
-    car_data[user_id]["korea_total_krw"] = (
-        (50000 / krw_rub_rate)
-        + (price_krw)
-        + (440000)
-        + (100000)
-        + 350000
-        + (600 * usd_rate / krw_rub_rate)
-    )
-
-    car_data[user_id]["korea_total_rub"] = (
-        (50000)
-        + (price_krw * krw_rub_rate)
-        + (440000 * krw_rub_rate)
-        + (100000 * krw_rub_rate)
-        + (350000 * krw_rub_rate)
-        + (600 * usd_rate)
-    )
+    car_data[user_id]["korea_total_usd"] = pricing["korea_operating_rub"] / usd_rate
+    car_data[user_id]["korea_total_krw"] = pricing["korea_operating_rub"] / krw_rub_rate
+    car_data[user_id]["korea_total_rub"] = pricing["korea_operating_rub"]
 
     # Расходы Россия
     car_data[user_id]["customs_duty_usd"] = customs_duty / usd_rate
@@ -3042,7 +2975,7 @@ def calculate_manual_cost(user_id):
     car_data[user_id]["util_fee_krw"] = recycling_fee / krw_rub_rate
     car_data[user_id]["util_fee_rub"] = recycling_fee
 
-    broker_rub = russia_fees["broker_rub"]
+    broker_rub = pricing["broker_rub"]
     svh_rub = russia_fees["svh_rub"]
     lab_rub = russia_fees["lab_rub"]
     perm_reg_rub = russia_fees["perm_registration_rub"]

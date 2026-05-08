@@ -492,3 +492,69 @@ def calculate_recycling_fee(engine_volume, age):
     # Рассчитываем утилизационный сбор
     recycling_fee = base_rate * coefficient
     return round(recycling_fee, 2)
+
+
+# ---------------------------------------------------------------------------
+# Turn-key cost pricing — single source of truth.
+#
+# Mirrors the Google Sheets pricing table the manager uses for client quotes.
+# Every code path that displays "Стоимость под ключ до Владивостока" MUST
+# go through compute_turnkey_total. Do not duplicate the formula.
+# ---------------------------------------------------------------------------
+
+AGENT_FEE_RUB = 50_000          # Агентские услуги
+DEALER_KRW = 440_000            # Диллерский сбор
+KOREA_DELIVERY_KRW = 100_000    # Доставка, снятие с учёта, оформление
+TRANSFER_TO_PORT_KRW = 700_000  # Транспортировка авто в порт (was 350,000 — updated 2026-05)
+SEA_FREIGHT_USD = 600           # Фрахт паромом до Владивостока
+BROKER_PERCENT = 0.015          # 1.5% от суммы таможенных платежей
+BROKER_FIXED_RUB = 15_000       # Фиксированная часть брокерских услуг
+
+
+def compute_broker_fee(customs_duty_rub, customs_fee_rub, recycling_fee_rub):
+    """Брокерские услуги Владивосток = 1.5% × (пошлина + сбор + утиль) + 15 000 ₽."""
+    customs_sum = customs_duty_rub + customs_fee_rub + recycling_fee_rub
+    return round(customs_sum * BROKER_PERCENT + BROKER_FIXED_RUB, 2)
+
+
+def compute_turnkey_total(
+    *,
+    price_krw,
+    krw_rub,
+    usd_rub,
+    customs_duty_rub,
+    customs_fee_rub,
+    recycling_fee_rub,
+    russia_fees,
+):
+    """Compute the turn-key cost in RUB for a Korean import.
+
+    russia_fees must contain svh_rub, lab_rub, perm_registration_rub.
+    Returns dict with total_rub, broker_rub, korea_rub, russia_rub.
+    """
+    broker_rub = compute_broker_fee(customs_duty_rub, customs_fee_rub, recycling_fee_rub)
+
+    # "Итого расходов по Корее" in the reference table EXCLUDES the agent fee
+    # (the agent line sits above that subtotal in the manager's spreadsheet).
+    korea_operating_rub = (
+        price_krw * krw_rub
+        + DEALER_KRW * krw_rub
+        + KOREA_DELIVERY_KRW * krw_rub
+        + TRANSFER_TO_PORT_KRW * krw_rub
+        + SEA_FREIGHT_USD * usd_rub
+    )
+    russia_rub = (
+        customs_duty_rub
+        + customs_fee_rub
+        + recycling_fee_rub
+        + broker_rub
+        + russia_fees["svh_rub"]
+        + russia_fees["lab_rub"]
+        + russia_fees["perm_registration_rub"]
+    )
+    return {
+        "total_rub": AGENT_FEE_RUB + korea_operating_rub + russia_rub,
+        "broker_rub": broker_rub,
+        "korea_operating_rub": korea_operating_rub,  # detail view "Итого по Корее"
+        "russia_rub": russia_rub,
+    }
