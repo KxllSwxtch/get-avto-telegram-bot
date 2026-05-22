@@ -2,8 +2,8 @@ import requests
 import csv
 from io import StringIO
 
-# ID Google Таблицы с расходами по России
-SPREADSHEET_ID = "1jB87xWjsGfvrxdpJnNsdjlY3P4o4fDEdkdsStHELdb4"
+# ID Google Таблицы с расходами по России (основная копия КОРЕЯ/КИТАЙ)
+SPREADSHEET_ID = "1CuUkxw8or9KOxASU1e_F5qh1Sh3Y_gJRfxcVEMxvFZ8"
 
 # Fallback defaults.
 # Note: broker fee is no longer fetched here — it's computed by
@@ -36,9 +36,11 @@ def get_russia_fees():
             reader = csv.reader(StringIO(csv_data))
             table = list(reader)
 
-            svh_rub = _parse_rub_value(table[23][5])
-            lab_rub = _parse_rub_value(table[24][5])
-            perm_registration_rub = _parse_rub_value(table[25][5])
+            # Колонка F (RUB): СВХ-Владивосток / Лаборатория / Временная регистрация.
+            # В копии это строки 27/28/29 листа (индексы 26/27/28 в gviz-выгрузке).
+            svh_rub = _parse_rub_value(table[26][5])
+            lab_rub = _parse_rub_value(table[27][5])
+            perm_registration_rub = _parse_rub_value(table[28][5])
 
             fees = {
                 "svh_rub": svh_rub,

@@ -2,8 +2,8 @@ import requests
 import csv
 from io import StringIO
 
-# ID Google Таблицы
-SPREADSHEET_ID = "1REgqSwTIcOe37wGt-PByOrVOZ7OilBGH1XqZxZeCnyQ"
+# ID Google Таблицы (основная копия КОРЕЯ/КИТАЙ)
+SPREADSHEET_ID = "1CuUkxw8or9KOxASU1e_F5qh1Sh3Y_gJRfxcVEMxvFZ8"
 
 
 def get_krwrub_rate():
@@ -15,13 +15,14 @@ def get_krwrub_rate():
             csv_data = response.text
             reader = csv.reader(StringIO(csv_data))
             table = list(reader)
-            raw_value = table[5][4].replace(",", ".").replace("₽", "").strip()
+            # Курс KRW в колонке E строки «Суток на СВХ» (8-я строка листа = индекс 7)
+            raw_value = table[7][4].replace(",", ".").replace("₽", "").strip()
             if raw_value:  # Check for non-empty
                 krwrub_rate = float(raw_value)
                 print(f"✅ KRW/RUB rate fetched from Google Sheets: {krwrub_rate}")
                 return krwrub_rate
             else:
-                print("⚠️ Google Sheets cell E6 is empty, falling back to CBR")
+                print("⚠️ Google Sheets KRW cell is empty, falling back to CBR")
     except Exception as e:
         print(f"⚠️ Google Sheets failed: {e}")
 
