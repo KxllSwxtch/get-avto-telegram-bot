@@ -1329,14 +1329,21 @@ def complete_url_calculation(user_id, message):
         engine_type=fuel_type,
     )
 
-    if not response:
-        bot.send_message(user_id, "Ошибка при расчёте таможенных платежей. Попробуйте снова.")
+    if not response["ok"]:
+        if response["reason"] == "rate_limited":
+            bot.send_message(
+                user_id,
+                "Сервис расчёта таможни временно перегружен. "
+                "Попробуйте, пожалуйста, через 1–2 минуты.",
+            )
+        else:
+            bot.send_message(user_id, "Ошибка при расчёте таможенных платежей. Попробуйте снова.")
         return
 
     # Extract customs values
-    customs_fee = clean_number(response["sbor"])
-    customs_duty = clean_number(response["tax"])
-    recycling_fee = clean_number(response["util"])
+    customs_fee = clean_number(response["data"]["sbor"])
+    customs_duty = clean_number(response["data"]["tax"])
+    recycling_fee = clean_number(response["data"]["util"])
 
     # Calculate age
     age = calculate_age(full_year, month)
@@ -1763,14 +1770,21 @@ def complete_china_calculation(user_id, message):
         currency="CNY",
     )
 
-    if not response:
-        bot.send_message(user_id, "Ошибка при расчёте таможенных платежей. Попробуйте снова.")
+    if not response["ok"]:
+        if response["reason"] == "rate_limited":
+            bot.send_message(
+                user_id,
+                "Сервис расчёта таможни временно перегружен. "
+                "Попробуйте, пожалуйста, через 1–2 минуты.",
+            )
+        else:
+            bot.send_message(user_id, "Ошибка при расчёте таможенных платежей. Попробуйте снова.")
         return
 
     # Extract customs values
-    customs_fee = clean_number(response["sbor"])
-    customs_duty = clean_number(response["tax"])
-    recycling_fee = clean_number(response["util"])
+    customs_fee = clean_number(response["data"]["sbor"])
+    customs_duty = clean_number(response["data"]["tax"])
+    recycling_fee = clean_number(response["data"]["util"])
 
     # Calculate costs
     first_payment_rub = CHINA_FIRST_PAYMENT * cny_rub_rate
@@ -2060,14 +2074,21 @@ def calculate_manual_china_cost(user_id):
         currency="CNY",
     )
 
-    if not response:
-        bot.send_message(user_id, "Ошибка при расчёте таможенных платежей. Попробуйте снова.")
+    if not response["ok"]:
+        if response["reason"] == "rate_limited":
+            bot.send_message(
+                user_id,
+                "Сервис расчёта таможни временно перегружен. "
+                "Попробуйте, пожалуйста, через 1–2 минуты.",
+            )
+        else:
+            bot.send_message(user_id, "Ошибка при расчёте таможенных платежей. Попробуйте снова.")
         return
 
     # Extract customs values
-    customs_fee = clean_number(response["sbor"])
-    customs_duty = clean_number(response["tax"])
-    recycling_fee = clean_number(response["util"])
+    customs_fee = clean_number(response["data"]["sbor"])
+    customs_duty = clean_number(response["data"]["tax"])
+    recycling_fee = clean_number(response["data"]["util"])
 
     # Calculate costs
     first_payment_rub = CHINA_FIRST_PAYMENT * cny_rub_rate
@@ -2911,9 +2932,20 @@ def calculate_manual_cost(user_id):
         engine_type=fuel_type,  # Pass user-selected fuel type
     )
 
-    customs_fee = clean_number(response["sbor"])
-    customs_duty = clean_number(response["tax"])
-    recycling_fee = clean_number(response["util"])
+    if not response["ok"]:
+        if response["reason"] == "rate_limited":
+            bot.send_message(
+                user_id,
+                "Сервис расчёта таможни временно перегружен. "
+                "Попробуйте, пожалуйста, через 1–2 минуты.",
+            )
+        else:
+            bot.send_message(user_id, "Ошибка при расчёте таможенных платежей. Попробуйте снова.")
+        return
+
+    customs_fee = clean_number(response["data"]["sbor"])
+    customs_duty = clean_number(response["data"]["tax"])
+    recycling_fee = clean_number(response["data"]["util"])
 
     # Расчет итоговой стоимости автомобиля в рублях через канонический helper.
     pricing = compute_turnkey_total(

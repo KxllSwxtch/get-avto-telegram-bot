@@ -1,4 +1,6 @@
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 import datetime
 import locale
 import logging
@@ -9,8 +11,9 @@ import threading
 import re
 
 PROXY = "http://B01vby:GBno0x@45.118.250.2:8000"
-RESIDENTIAL_PROXY = (
-    "http://oGKgjVaIooWADkOR:O8J73QYtjYWgQj4m_country-ru@geo.iproyal.com:12321"
+# BestProxy Russia residential exit, used to dodge per-IP throttling on calcus.ru.
+CALCUS_PROXY = (
+    "http://bp-hjmqitj9abkx_area-RU:B1Tdf3CVWjhrwbp0@proxy.bestproxy.com:2312"
 )
 proxies = {"http": PROXY, "https": PROXY}
 
@@ -168,7 +171,8 @@ def get_customs_fees(engine_volume, car_price, car_year, car_month, power=1, eng
     :param power: Мощность двигателя в л.с. (важно для расчёта утильсбора с 01.12.2024)
     :param engine_type: Тип двигателя (1 - бензин, 2 - дизель, 4 - электро, 5 - гибрид посл., 6 - гибрид парал.)
     :param currency: Валюта цены ("KRW" для Кореи, "CNY" для Китая)
-    :return: JSON с результатами расчёта
+    :return: dict { "ok": True, "data": <calcus_json> } on success,
+             or { "ok": False, "reason": "rate_limited" | "network" | "parse" } on failure.
     """
     url = "https://calcus.ru/calculate/Customs"
 
@@ -183,20 +187,70 @@ def get_customs_fees(engine_volume, car_price, car_year, car_month, power=1, eng
         "curr": currency,  # Валюта (KRW или CNY)
     }
 
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-        "Referer": "https://calcus.ru/",
-        "Origin": "https://calcus.ru",
-        "Content-Type": "application/x-www-form-urlencoded",
-    }
+    def attempt(request_proxies=None):
+        calcus_rate_limiter.acquire()
+        headers = {
+            "User-Agent": get_random_user_agent(),
+            "Referer": "https://calcus.ru/",
+            "Origin": "https://calcus.ru",
+            "Content-Type": "application/x-www-form-urlencoded",
+        }
+        retry = Retry(
+            total=4,
+            backoff_factor=2,
+            status_forcelist=[429, 500, 502, 503, 504],
+            allowed_methods=["POST"],
+            raise_on_status=False,
+        )
+        session = requests.Session()
+        adapter = HTTPAdapter(max_retries=retry)
+        session.mount("https://", adapter)
+        session.mount("http://", adapter)
+        return session.post(
+            url, data=payload, headers=headers, proxies=request_proxies, timeout=30
+        )
 
     try:
-        response = requests.post(url, data=payload, headers=headers)
-        response.raise_for_status()
-        return response.json()
+        response = attempt()
+
+        # Retries on the Heroku exit IP exhausted with 429 → fall back through residential proxy once.
+        if response.status_code == 429:
+            logging.error(
+                "calcus.ru 429 after retries on direct exit; falling back to residential proxy. "
+                f"body={response.text[:200]!r}"
+            )
+            try:
+                response = attempt(
+                    request_proxies={"http": CALCUS_PROXY, "https": CALCUS_PROXY}
+                )
+            except requests.RequestException as e:
+                logging.error(f"calcus.ru residential proxy attempt failed: {e}")
+                return {"ok": False, "reason": "rate_limited"}
+
+        if response.status_code == 429:
+            logging.error(
+                f"calcus.ru still 429 after proxy fallback. body={response.text[:200]!r}"
+            )
+            return {"ok": False, "reason": "rate_limited"}
+
+        if not response.ok:
+            logging.error(
+                f"calcus.ru HTTP {response.status_code}: {response.text[:200]!r}"
+            )
+            return {"ok": False, "reason": "network"}
+
+        try:
+            data = response.json()
+        except ValueError as e:
+            logging.error(
+                f"calcus.ru returned non-JSON: {e}; body={response.text[:200]!r}"
+            )
+            return {"ok": False, "reason": "parse"}
+
+        return {"ok": True, "data": data}
     except requests.RequestException as e:
-        print(f"Ошибка при запросе к calcus.ru: {e}")
-        return None
+        logging.error(f"calcus.ru network error: {e}")
+        return {"ok": False, "reason": "network"}
 
 
 # Utility function to calculate the age category
